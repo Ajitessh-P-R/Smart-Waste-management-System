@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SmartWaste Chennai{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0d0f14;
+            --surface: #151820;
+            --surface2: #1c2030;
+            --border: #252a3a;
+            --green: #00e676;
+            --yellow: #ffca28;
+            --red: #ff5252;
+            --blue: #448aff;
+            --text: #e8eaf0;
+            --muted: #6b7280;
+            --accent: #00e676;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; min-height:100vh; }
+        h1,h2,h3,h4 { font-family:'Syne',sans-serif; }
+
+        .navbar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 2rem;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .navbar-brand {
+            font-family:'Syne',sans-serif;
+            font-weight:800;
+            font-size:1.2rem;
+            color:var(--accent);
+            text-decoration:none;
+            display:flex;
+            align-items:center;
+            gap:0.5rem;
+        }
+        .navbar-brand span { color: var(--text); }
+        .navbar-nav { display:flex; align-items:center; gap:1.5rem; }
+        .navbar-nav a {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .navbar-nav a:hover { color: var(--text); }
+        .navbar-nav a.active { color: var(--accent); }
+        .nav-right { display:flex; align-items:center; gap:1rem; }
+        .badge-role {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight:600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .btn-logout {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            padding: 0.3rem 0.8rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .btn-logout:hover { border-color: var(--red); color: var(--red); }
+
+        .page { padding: 2rem; max-width: 1400px; margin: 0 auto; }
+        .page-header { margin-bottom: 2rem; }
+        .page-header h1 { font-size: 1.8rem; font-weight:800; }
+        .page-header p { color: var(--muted); margin-top: 0.25rem; font-size:0.95rem; }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+        .card-title {
+            font-family:'Syne',sans-serif;
+            font-weight:700;
+            font-size:1rem;
+            margin-bottom:1rem;
+            color: var(--muted);
+            text-transform:uppercase;
+            letter-spacing:0.05em;
+            font-size:0.8rem;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+        }
+        .stat-label { font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem; }
+        .stat-value { font-family:'Syne',sans-serif; font-size:2rem; font-weight:800; line-height:1; }
+        .stat-value.green { color: var(--green); }
+        .stat-value.yellow { color: var(--yellow); }
+        .stat-value.red { color: var(--red); }
+        .stat-value.blue { color: var(--blue); }
+
+        .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; }
+        .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.5rem; }
+
+        table { width:100%; border-collapse:collapse; }
+        th { text-align:left; padding:0.75rem 1rem; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); border-bottom:1px solid var(--border); font-family:'Syne',sans-serif; }
+        td { padding:0.75rem 1rem; border-bottom:1px solid var(--border); font-size:0.9rem; }
+        tr:last-child td { border-bottom:none; }
+        tr:hover td { background: var(--surface2); }
+
+        .pill {
+            display:inline-block;
+            padding:0.2rem 0.6rem;
+            border-radius:20px;
+            font-size:0.75rem;
+            font-weight:600;
+        }
+        .pill-green { background:rgba(0,230,118,0.15); color:var(--green); }
+        .pill-yellow { background:rgba(255,202,40,0.15); color:var(--yellow); }
+        .pill-red { background:rgba(255,82,82,0.15); color:var(--red); }
+        .pill-blue { background:rgba(68,138,255,0.15); color:var(--blue); }
+        .pill-grey { background:rgba(107,114,128,0.15); color:var(--muted); }
+
+        .btn {
+            display:inline-block;
+            padding:0.5rem 1.2rem;
+            border-radius:8px;
+            border:none;
+            cursor:pointer;
+            font-size:0.9rem;
+            font-weight:500;
+            text-decoration:none;
+            transition: all 0.2s;
+            font-family:'DM Sans',sans-serif;
+        }
+        .btn-primary { background:var(--green); color:#000; }
+        .btn-primary:hover { background:#00c853; }
+        .btn-danger { background:var(--red); color:#fff; }
+        .btn-outline { background:transparent; border:1px solid var(--border); color:var(--text); }
+        .btn-outline:hover { border-color:var(--accent); color:var(--accent); }
+        .btn-sm { padding:0.3rem 0.8rem; font-size:0.8rem; }
+
+        input, select, textarea {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.6rem 0.9rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-family: 'DM Sans', sans-serif;
+            width: 100%;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+        label { font-size:0.85rem; color:var(--muted); margin-bottom:0.3rem; display:block; }
+        .form-group { margin-bottom:1rem; }
+
+        /* Notification bell */
+        .notif-bell { position:relative; cursor:pointer; }
+        .notif-count {
+            position:absolute; top:-5px; right:-5px;
+            background:var(--red); color:#fff;
+            border-radius:50%; width:16px; height:16px;
+            font-size:10px; display:flex; align-items:center; justify-content:center;
+            font-weight:700;
+        }
+        #notif-panel {
+            display:none;
+            position:absolute; right:0; top:45px;
+            background:var(--surface);
+            border:1px solid var(--border);
+            border-radius:12px;
+            width:320px;
+            z-index:999;
+            overflow:hidden;
+        }
+        #notif-panel.show { display:block; }
+        .notif-item {
+            padding:0.75rem 1rem;
+            border-bottom:1px solid var(--border);
+            font-size:0.85rem;
+        }
+        .notif-item:last-child { border-bottom:none; }
+        .notif-time { font-size:0.75rem; color:var(--muted); margin-top:0.2rem; }
+        .notif-empty { padding:1rem; text-align:center; color:var(--muted); font-size:0.9rem; }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+{% block navbar %}
+<nav class="navbar">
+    <a class="navbar-brand" href="/">🗑 <span>Smart</span>Waste</a>
+    <div class="navbar-nav">
+        {% block nav_links %}{% endblock %}
+    </div>
+    <div class="nav-right">
+        {% if session.role %}
+        <div class="notif-bell" onclick="toggleNotif()" id="notif-btn">
+            🔔 <span class="notif-count" id="notif-count" style="display:none">0</span>
+        </div>
+        <div id="notif-panel">
+            <div style="padding:0.75rem 1rem; border-bottom:1px solid var(--border); font-weight:700; font-family:'Syne',sans-serif; font-size:0.85rem;">ALERTS</div>
+            <div id="notif-list"><div class="notif-empty">No new alerts</div></div>
+        </div>
+        <span class="badge-role">{{ session.role }}</span>
+        <span style="font-size:0.9rem; color:var(--muted)">{{ session.user_name }}</span>
+        <a href="/logout" class="btn-logout">Logout</a>
+        {% endif %}
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}{% endblock %}
+
+<script>
+function toggleNotif() {
+    document.getElementById('notif-panel').classList.toggle('show');
+}
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#notif-btn') && !e.target.closest('#notif-panel')) {
+        document.getElementById('notif-panel')?.classList.remove('show');
+    }
+});
+async function checkNotifications() {
+    try {
+        const res  = await fetch('/api/notifications');
+        const data = await res.json();
+        const count = document.getElementById('notif-count');
+        const list  = document.getElementById('notif-list');
+        if (!count || !list) return;
+        if (data.length > 0) {
+            count.style.display = 'flex';
+            count.textContent   = data.length;
+            list.innerHTML = data.map(n => `
+                <div class="notif-item">
+                    ${n.message}
+                    <div class="notif-time">${n.created_at}</div>
+                </div>`).join('');
+        } else {
+            count.style.display = 'none';
+            list.innerHTML = '<div class="notif-empty">No new alerts</div>';
+        }
+    } catch(e) {}
+}
+{% if session.role %}
+checkNotifications();
+setInterval(checkNotifications, 15000);
+{% endif %}
+</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

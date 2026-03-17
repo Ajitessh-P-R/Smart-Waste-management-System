@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Live Tracking — SmartWaste Admin{% endblock %}
+{% block nav_links %}
+<a href="/admin">Dashboard</a><a href="/admin/bins">Bins</a><a href="/admin/complaints">Complaints</a>
+<a href="/admin/routes">Routes</a><a href="/admin/workers">Workers</a><a href="/admin/festival">Festival</a>
+<a href="/admin/impact">Impact</a><a href="/admin/predict">Predict</a><a href="/admin/tracking" class="active">Tracking</a>
+{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+.worker-map{height:360px;border-radius:10px;background:var(--surface2);}
+.wcard{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--green);border-radius:10px;overflow:hidden;margin-bottom:1.5rem;}
+.wcard-header{padding:.85rem 1rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.stop-pill{display:inline-flex;align-items:center;gap:.35rem;background:var(--surface2);border-radius:6px;padding:.25rem .6rem;font-size:.8rem;margin:.15rem;}
+.stop-pill.done{background:rgba(0,230,118,.1);color:var(--green);}
+.stop-pill.pending{color:var(--muted);}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page">
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <div><h1>Live Worker Tracking</h1><p>Route path vs real-time worker location — updates every 10s</p></div>
+        <span style="font-size:.82rem;color:var(--muted);" id="refresh-label">Auto-refreshing</span>
+    </div>
+
+    {% if not active_workers %}
+    <div class="card" style="text-align:center;padding:3rem 0;">
+        <div style="font-size:2.5rem;margin-bottom:.75rem;">😴</div>
+        <div style="font-size:1.1rem;font-weight:700;margin-bottom:.4rem;">No workers on shift</div>
+        <div style="color:var(--muted);font-size:.9rem;">Workers appear here once they start shift and generate a route.</div>
+    </div>
+    {% else %}
+
+    <div class="stat-grid" style="margin-bottom:1.5rem;">
+        <div class="stat-card"><div class="stat-label">On Shift</div><div class="stat-value green">{{ active_workers|length }}</div></div>
+        <div class="stat-card"><div class="stat-label">With Route</div><div class="stat-value blue">{{ active_workers|selectattr('route')|list|length }}</div></div>
+        <div class="stat-card">
+            <div class="stat-label">Stops Done</div>
+            <div class="stat-value yellow">{% set d=namespace(v=0) %}{% for w in active_workers %}{% if w.route %}{% set d.v=d.v+(w.route.done_stops or 0) %}{% endif %}{% endfor %}{{ d.v }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Stops Left</div>
+            <div class="stat-value red">{% set r=namespace(v=0) %}{% for w in active_workers %}{% if w.route %}{% set r.v=r.v+((w.route.total_stops or 0)-(w.route.done_stops or 0)) %}{% endif %}{% endfor %}{{ r.v }}</div>
+        </div>
+    </div>
+
+    {% for w in active_workers %}
+    <div class="wcard">
+        <div class="wcard-header">
+            <div style="display:flex;align-items:center;gap:.75rem;">
+                <div style="width:38px;height:38px;background:rgba(0,230,118,.12);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--green);font-size:.85rem;">{{ (w.name or w.worker_id)[:2].upper() }}</div>
+                <div>
+                    <div style="font-weight:700;">{{ w.name or w.worker_id }}</div>
+                    <div style="font-size:.8rem;color:var(--muted);">{{ w.assigned_zone }} &nbsp;·&nbsp; ID: {{ w.worker_id }}</div>
+                </div>
+            </div>
+            <div style="text-align:right;">
+                {% if w.route %}
+                <div style="font-size:.85rem;font-weight:700;">
+                    <span style="color:var(--green);">{{ w.route.done_stops }}</span><span style="color:var(--muted);">/{{ w.route.total_stops }}</span> stops
+                </div>
+                <span class="pill pill-{% if w.route.status=='completed' %}green{% elif w.route.status=='active' %}yellow{% else %}blue{% endif %}" style="margin-top:.25rem;display:inline-block;">{{ w.route.status }}</span>
+                {% else %}
+                <span class="pill pill-grey">No route yet</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Map -->
+        <div class="worker-map" id="wmap-{{ w.worker_id }}"></div>
+
+        <!-- Stop progress pills -->
+        {% if w.route and w.route.bins_sequence %}
+        <div style="padding:.75rem 1rem;border-top:1px solid var(--border);">
+            <div style="font-size:.78rem;color:var(--muted);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.05em;">Stop Progress</div>
+            {% set stops = w.route.bins_sequence.split(' -> ') %}
+            {% for stop in stops %}
+            {% set stop = stop.strip() %}
+            {% set collected = loop.index <= (w.route.done_stops or 0) %}
+            <span class="stop-pill {% if collected %}done{% else %}pending{% endif %}">
+                <span style="font-weight:700;">{{ loop.index }}</span> {{ stop }}
+                {% if collected %}✓{% else %}⏳{% endif %}
+            </span>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const ORS_KEY     = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImI0NDRiNjE2MzlmZDQzY2E4ODBiMTkzZjUxZjQ2OGYwIiwiaCI6Im11cm11cjY0In0=";
+const allWorkers  = {{ active_workers | tojson }};
+const ZONE_HQ     = {'Adyar':[13.0067,80.2206],'Tambaram':[12.9249,80.1000],'Velachery':[12.9816,80.2209],'Anna Nagar':[13.0850,80.2101],'T. Nagar':[13.0418,80.2341],'All Zones':[13.0627,80.2100]};
+const workerMaps  = {};
+const workerPins  = {};
+
+function workerIcon(){return L.divIcon({html:`<div style="width:22px;height:22px;background:#448aff;border-radius:50%;border:3px solid #fff;box-shadow:0 0 12px #448aff;"></div>`,className:'',iconSize:[22,22],iconAnchor:[11,11]});}
+function binIcon(color,num){return L.divIcon({html:`<div style="background:${color};color:#000;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.72rem;border:2px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.5);">${num}</div>`,className:'',iconSize:[24,24],iconAnchor:[12,12]});}
+function sc(s){return s==='red'?'#ff5252':s==='yellow'?'#ffca28':'#00e676';}
+
+async function initMap(w){
+    const el=document.getElementById('wmap-'+w.worker_id);
+    if(!el||el._init)return; el._init=true;
+    await new Promise(r=>setTimeout(r,100));
+    const hq=ZONE_HQ[w.assigned_zone]||[13.0418,80.2341];
+    const lat=w.current_lat||hq[0], lng=w.current_lng||hq[1];
+    const map=L.map(el,{zoomControl:true,attributionControl:false}).setView([lat,lng],13);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+    map.invalidateSize(); workerMaps[w.worker_id]=map;
+    const pin=L.marker([lat,lng],{icon:workerIcon()}).bindPopup(`<b>${w.name||w.worker_id}</b><br>Live position`).addTo(map);
+    workerPins[w.worker_id]=pin;
+    const bins=(w.route_bins||[]).filter(b=>b.latitude&&b.longitude);
+    bins.forEach((b,i)=>L.marker([b.latitude,b.longitude],{icon:binIcon(sc(b.status),i+1)}).bindPopup(`<b>Stop ${i+1}: ${b.bin_id}</b><br>Fill: ${(b.fill_percent||0).toFixed(0)}%`).addTo(map));
+    if(bins.length>=2){
+        try{
+            const coords=bins.map(b=>[b.longitude,b.latitude]);
+            const res=await fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson',{method:'POST',headers:{'Authorization':ORS_KEY,'Content-Type':'application/json'},body:JSON.stringify({coordinates:coords})});
+            const data=await res.json();
+            if(data.features&&data.features[0]){
+                const line=data.features[0].geometry.coordinates.map(c=>[c[1],c[0]]);
+                const poly=L.polyline(line,{color:'#448aff',weight:4,opacity:.85}).addTo(map);
+                L.polyline([[lat,lng],[bins[0].latitude,bins[0].longitude]],{color:'#00e676',weight:2,dashArray:'6,5',opacity:.8}).addTo(map);
+                map.fitBounds(poly.getBounds().extend([lat,lng]),{padding:[30,30]});
+                const seg=data.features[0].properties.segments;
+                const dist=(seg.reduce((a,s)=>a+s.distance,0)/1000).toFixed(1);
+                const mins=Math.round(seg.reduce((a,s)=>a+s.duration,0)/60);
+                pin.setPopupContent(`<b>${w.name||w.worker_id}</b><br>📏 ${dist} km · ⏱ ${mins} min`);
+            }else throw new Error();
+        }catch{
+            const ll=[[lat,lng],...bins.map(b=>[b.latitude,b.longitude])];
+            const poly=L.polyline(ll,{color:'#448aff',weight:3,dashArray:'8,6'}).addTo(map);
+            map.fitBounds(poly.getBounds(),{padding:[30,30]});
+        }
+    }
+}
+
+// Live location refresh
+async function refreshLocations(){
+    try{
+        const workers=await fetch('/api/workers/live').then(r=>r.json());
+        workers.forEach(w=>{
+            const pin=workerPins[w.worker_id];
+            if(pin&&w.current_lat&&w.current_lng) pin.setLatLng([w.current_lat,w.current_lng]);
+        });
+        document.getElementById('refresh-label').textContent='Updated: '+new Date().toLocaleTimeString();
+    }catch(e){}
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+    allWorkers.forEach(w=>initMap(w));
+    setInterval(refreshLocations,10000);
+});
+</script>
+{% endblock %}

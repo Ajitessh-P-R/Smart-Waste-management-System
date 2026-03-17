@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Track Complaints — SmartWaste{% endblock %}
+
+{% block nav_links %}
+<a href="/citizen">Home</a>
+<a href="/citizen/complaint">Report Issue</a>
+<a href="/citizen/track" class="active">Track Complaints</a>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+    <div class="page-header">
+        <h1>My Complaints</h1>
+        <p>Track the status of all your reported issues</p>
+    </div>
+
+    <div class="card">
+        {% if complaints %}
+        <table>
+            <thead><tr><th>Complaint ID</th><th>Bin</th><th>Zone</th><th>Issue</th><th>Filed On</th><th>Status</th></tr></thead>
+            <tbody>
+            {% for c in complaints %}
+            <tr>
+                <td style="color:var(--muted); font-size:0.85rem;">#{{ c.id }}</td>
+                <td><strong>{{ c.bin_id }}</strong></td>
+                <td>{{ c.zone }}</td>
+                <td>{{ c.reason }}</td>
+                <td style="font-size:0.85rem; color:var(--muted);">{{ c.created_at.strftime('%d %b %Y') if c.created_at else '—' }}</td>
+                <td>
+                    <span class="pill
+                        {% if c.status == 'resolved' %}pill-green
+                        {% elif c.status == 'in_progress' %}pill-blue
+                        {% elif c.status == 'assigned' %}pill-yellow
+                        {% else %}pill-grey{% endif %}">
+                        {% if c.status == 'pending' %}⏳ Pending
+                        {% elif c.status == 'assigned' %}👷 Assigned
+                        {% elif c.status == 'in_progress' %}🔧 In Progress
+                        {% else %}✅ Resolved{% endif %}
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color:var(--muted); text-align:center; padding:3rem 0;">You haven't filed any complaints yet. <a href="/citizen/complaint" style="color:var(--green)">Report one →</a></p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

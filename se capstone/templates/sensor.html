@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bin Sensor Terminal — SmartWaste</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg:#060a06; --surface:#0d150d; --border:#1a2e1a; --green:#00e676; --yellow:#ffca28; --red:#ff5252; --text:#e8f0e8; --muted:#4a6b4a; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem; }
+
+        .terminal-header { text-align:center; margin-bottom:3rem; }
+        .terminal-header h1 { font-family:'Syne',sans-serif; font-size:1.4rem; font-weight:800; color:var(--green); letter-spacing:0.1em; }
+        .terminal-header p { color:var(--muted); font-size:0.85rem; margin-top:0.25rem; font-family:'DM Mono',monospace; }
+
+        .terminal-box {
+            background:var(--surface);
+            border:1px solid var(--border);
+            border-radius:16px;
+            padding:2.5rem;
+            width:100%; max-width:480px;
+        }
+
+        label { font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.4rem; display:block; font-family:'DM Mono',monospace; }
+        select, input {
+            width:100%; background:#0a120a; border:1px solid var(--border);
+            color:var(--text); padding:0.75rem 1rem; border-radius:10px;
+            font-size:1rem; outline:none; transition:border-color 0.2s;
+            font-family:'DM Mono',monospace; margin-bottom:1.25rem;
+        }
+        select:focus, input:focus { border-color:var(--green); }
+
+        .weight-display {
+            text-align:center; padding:1.5rem;
+            background:#0a120a; border-radius:12px;
+            margin-bottom:1.5rem; border:1px solid var(--border);
+        }
+        .weight-num { font-family:'Syne',sans-serif; font-size:3rem; font-weight:800; color:var(--green); line-height:1; }
+        .weight-unit { font-size:0.9rem; color:var(--muted); margin-top:0.25rem; }
+
+        .fill-bar-wrap { margin-bottom:1.5rem; }
+        .fill-label { display:flex; justify-content:space-between; font-size:0.8rem; color:var(--muted); margin-bottom:0.4rem; font-family:'DM Mono',monospace; }
+        .fill-bar { height:8px; background:#0a120a; border-radius:20px; overflow:hidden; }
+        .fill-inner { height:100%; border-radius:20px; transition:width 0.5s, background 0.5s; background:var(--green); }
+
+        .btn-send {
+            width:100%; background:var(--green); color:#000;
+            border:none; padding:1rem; border-radius:12px;
+            font-size:1rem; font-weight:700; cursor:pointer;
+            font-family:'Syne',sans-serif; letter-spacing:0.05em;
+            transition:all 0.2s;
+        }
+        .btn-send:hover { background:#00c853; transform:translateY(-1px); }
+        .btn-send:active { transform:scale(0.98); }
+        .btn-send:disabled { background:#1a2e1a; color:var(--muted); cursor:not-allowed; transform:none; }
+
+        .log-box {
+            margin-top:1.5rem;
+            background:#0a120a;
+            border:1px solid var(--border);
+            border-radius:10px; overflow:hidden;
+        }
+        .log-header { padding:0.5rem 1rem; border-bottom:1px solid var(--border); font-size:0.75rem; color:var(--muted); font-family:'DM Mono',monospace; }
+        .log-list { max-height:180px; overflow-y:auto; }
+        .log-item { padding:0.5rem 1rem; border-bottom:1px solid var(--border); font-size:0.8rem; font-family:'DM Mono',monospace; display:flex; justify-content:space-between; align-items:center; }
+        .log-item:last-child { border-bottom:none; }
+        .log-status-green { color:var(--green); }
+        .log-status-yellow { color:var(--yellow); }
+        .log-status-red { color:var(--red); }
+
+        .response-banner {
+            padding:0.75rem 1rem; border-radius:8px;
+            font-size:0.85rem; margin-bottom:1rem;
+            font-family:'DM Mono',monospace; display:none;
+        }
+        .response-ok { background:rgba(0,230,118,0.1); border:1px solid rgba(0,230,118,0.3); color:var(--green); }
+        .response-alert { background:rgba(255,82,82,0.1); border:1px solid rgba(255,82,82,0.3); color:var(--red); }
+
+        .auto-sim { display:flex; align-items:center; gap:0.75rem; margin-bottom:1.5rem; padding:0.75rem 1rem; background:#0a120a; border-radius:10px; border:1px solid var(--border); }
+        .toggle { position:relative; width:42px; height:24px; flex-shrink:0; }
+        .toggle input { opacity:0; width:0; height:0; }
+        .slider { position:absolute; cursor:pointer; inset:0; background:#1a2e1a; border-radius:24px; transition:0.3s; }
+        .slider:before { content:''; position:absolute; height:18px; width:18px; left:3px; bottom:3px; background:var(--muted); border-radius:50%; transition:0.3s; }
+        input:checked + .slider { background:var(--green); }
+        input:checked + .slider:before { transform:translateX(18px); background:#000; }
+        .auto-label { font-size:0.85rem; color:var(--muted); font-family:'DM Mono',monospace; }
+    </style>
+</head>
+<body>
+    <div class="terminal-header">
+        <h1>⚖ BIN SENSOR TERMINAL</h1>
+        <p>SmartWaste Chennai — Weight Input Station</p>
+    </div>
+
+    <div class="terminal-box">
+        <div id="response-banner" class="response-banner"></div>
+
+        <div>
+            <label>Select Bin</label>
+            <select id="bin-select" onchange="updateCapacity()">
+                {% for b in bins %}
+                <option value="{{ b.bin_id }}" data-capacity="{{ b.capacity_kg }}">
+                    {{ b.bin_id }} — {{ b.zone }} (cap: {{ b.capacity_kg }}kg)
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label>Weight (KG)</label>
+            <input type="number" id="weight-input" min="0" max="500" step="0.1"
+                   placeholder="0.0" oninput="updatePreview()">
+        </div>
+
+        <div class="weight-display">
+            <div class="weight-num" id="weight-display">0.0</div>
+            <div class="weight-unit">kilograms</div>
+        </div>
+
+        <div class="fill-bar-wrap">
+            <div class="fill-label">
+                <span>Fill Level</span>
+                <span id="fill-pct">0%</span>
+            </div>
+            <div class="fill-bar">
+                <div class="fill-inner" id="fill-bar" style="width:0%"></div>
+            </div>
+        </div>
+
+        <div class="auto-sim">
+            <label class="toggle">
+                <input type="checkbox" id="auto-toggle" onchange="toggleAuto()">
+                <span class="slider"></span>
+            </label>
+            <span class="auto-label">Auto simulate (increases weight every 30s)</span>
+        </div>
+
+        <button class="btn-send" id="send-btn" onclick="sendReading()">
+            SEND READING →
+        </button>
+
+        <div class="log-box">
+            <div class="log-header">READING LOG</div>
+            <div class="log-list" id="log-list">
+                <div class="log-item" style="color:var(--muted)">No readings sent yet...</div>
+            </div>
+        </div>
+    </div>
+
+<script>
+let capacity = parseFloat(document.querySelector('#bin-select option').dataset.capacity) || 100;
+let autoInterval = null;
+let autoWeight = 0;
+
+function updateCapacity() {
+    const sel = document.getElementById('bin-select');
+    capacity  = parseFloat(sel.options[sel.selectedIndex].dataset.capacity) || 100;
+    updatePreview();
+}
+
+function updatePreview() {
+    const w    = parseFloat(document.getElementById('weight-input').value) || 0;
+    const fill = Math.min((w / capacity) * 100, 100);
+    document.getElementById('weight-display').textContent = w.toFixed(1);
+    document.getElementById('fill-pct').textContent       = fill.toFixed(1) + '%';
+    const bar   = document.getElementById('fill-bar');
+    bar.style.width = fill + '%';
+    bar.style.background = fill >= 80 ? '#ff5252' : (fill >= 50 ? '#ffca28' : '#00e676');
+    document.getElementById('weight-display').style.color = fill >= 80 ? '#ff5252' : (fill >= 50 ? '#ffca28' : '#00e676');
+}
+
+async function sendReading() {
+    const bin_id     = document.getElementById('bin-select').value;
+    const weight_kg  = parseFloat(document.getElementById('weight-input').value);
+    if (!weight_kg && weight_kg !== 0) return;
+
+    const btn = document.getElementById('send-btn');
+    btn.disabled     = true;
+    btn.textContent  = 'SENDING...';
+
+    try {
+        const res  = await fetch('/api/sensor/reading', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bin_id, weight_kg })
+        });
+        const data = await res.json();
+
+        const banner = document.getElementById('response-banner');
+        if (data.alert) {
+            banner.className   = 'response-banner response-alert';
+            banner.textContent = data.alert;
+        } else {
+            banner.className   = 'response-banner response-ok';
+            banner.textContent = `✓ Sent — ${bin_id} at ${data.fill_percent}% [${data.status.toUpperCase()}]`;
+        }
+        banner.style.display = 'block';
+
+        addLog(bin_id, weight_kg, data.fill_percent, data.status);
+
+        setTimeout(() => { banner.style.display = 'none'; }, 4000);
+    } catch(e) {
+        alert('Connection error. Check if Flask server is running.');
+    }
+
+    btn.disabled    = false;
+    btn.textContent = 'SEND READING →';
+}
+
+function addLog(bin_id, weight, fill, status) {
+    const list = document.getElementById('log-list');
+    const time = new Date().toLocaleTimeString();
+    const cls  = status === 'red' ? 'log-status-red' : (status === 'yellow' ? 'log-status-yellow' : 'log-status-green');
+    const item = document.createElement('div');
+    item.className = 'log-item';
+    item.innerHTML = `<span>${time} — ${bin_id} — ${weight}kg</span><span class="${cls}">${fill?.toFixed(1)}% ${status.toUpperCase()}</span>`;
+    if (list.querySelector('[style]')) list.innerHTML = '';
+    list.insertBefore(item, list.firstChild);
+    if (list.children.length > 8) list.removeChild(list.lastChild);
+}
+
+function toggleAuto() {
+    const on = document.getElementById('auto-toggle').checked;
+    if (on) {
+        autoWeight = parseFloat(document.getElementById('weight-input').value) || 0;
+        autoInterval = setInterval(() => {
+            autoWeight = Math.min(autoWeight + (capacity * 0.05), capacity);
+            document.getElementById('weight-input').value = autoWeight.toFixed(1);
+            updatePreview();
+            sendReading();
+        }, 30000);
+    } else {
+        clearInterval(autoInterval);
+    }
+}
+</script>
+</body>
+</html>

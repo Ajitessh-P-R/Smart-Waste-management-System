@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Citizen Dashboard — SmartWaste{% endblock %}
+
+{% block nav_links %}
+<a href="/citizen" class="active">Home</a>
+<a href="/citizen/complaint">Report Issue</a>
+<a href="/citizen/track">Track Complaints</a>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+    <div class="page-header">
+        <h1>Welcome, {{ session.user_name }}</h1>
+        <p>{{ session.zone }} — SmartWaste Citizen Portal</p>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:1.5rem;">
+        <div class="card">
+            <div class="card-title">📊 My Complaints</div>
+            <div class="stat-grid" style="margin-bottom:0;">
+                <div class="stat-card">
+                    <div class="stat-label">Total Filed</div>
+                    <div class="stat-value blue">{{ my_complaints|length }}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Resolved</div>
+                    <div class="stat-value green">{{ my_complaints|selectattr('status','equalto','resolved')|list|length }}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Pending</div>
+                    <div class="stat-value yellow">{{ my_complaints|selectattr('status','equalto','pending')|list|length }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">🚀 Quick Actions</div>
+            <a href="/citizen/complaint" class="btn btn-primary" style="display:block; margin-bottom:0.75rem; text-align:center;">📷 Report a Bin Issue</a>
+            <a href="/citizen/track" class="btn btn-outline" style="display:block; text-align:center;">🔍 Track My Complaints</a>
+
+            <div style="margin-top:1.5rem; padding-top:1.5rem; border-top:1px solid var(--border);">
+                <div class="card-title">📦 Request a New Bin</div>
+                <form method="POST" action="/citizen/bin_request">
+                    <input type="text" name="area" placeholder="Street / Area name" style="margin-bottom:0.5rem;">
+                    <input type="text" name="description" placeholder="Why is a bin needed here?" style="margin-bottom:0.5rem;">
+                    <button type="submit" class="btn btn-outline" style="width:100%;">Submit Request</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nearby Bins -->
+    <div class="card">
+        <div class="card-title">🗑 Bin Status — {{ session.zone }}</div>
+        <table>
+            <thead><tr><th>Bin ID</th><th>Zone</th><th>Fill Level</th><th>Status</th><th>Report</th></tr></thead>
+            <tbody>
+            {% for b in bins[:10] %}
+            <tr>
+                <td><strong>{{ b.bin_id }}</strong></td>
+                <td>{{ b.zone }}</td>
+                <td>
+                    <div style="display:flex; align-items:center; gap:0.75rem;">
+                        <div style="flex:1; background:var(--surface2); border-radius:20px; height:6px; min-width:80px;">
+                            <div style="width:{{ [b.fill_percent,100]|min }}%; background:{{'#ff5252' if b.status=='red' else ('#ffca28' if b.status=='yellow' else '#00e676')}}; height:6px; border-radius:20px;"></div>
+                        </div>
+                        <span style="font-size:0.85rem;">{{ "%.0f"|format(b.fill_percent) }}%</span>
+                    </div>
+                </td>
+                <td><span class="pill pill-{{ b.status }}">{{ b.status.upper() }}</span></td>
+                <td><a href="/citizen/complaint?bin_id={{ b.bin_id }}" class="btn btn-outline btn-sm">Report</a></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

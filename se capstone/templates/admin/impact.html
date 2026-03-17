@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Impact Dashboard — SmartWaste Admin{% endblock %}
+
+{% block nav_links %}
+<a href="/admin">Dashboard</a>
+<a href="/admin/bins">Bins</a>
+<a href="/admin/complaints">Complaints</a>
+<a href="/admin/routes">Routes</a>
+<a href="/admin/workers">Workers</a>
+<a href="/admin/festival">Festival</a>
+<a href="/admin/impact" class="active">Impact</a>
+<a href="/admin/predict">Predict</a>
+<a href="/admin/tracking">Tracking</a>
+{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+    <div class="page-header">
+        <h1>Impact Dashboard</h1>
+        <p>Measurable real-world impact of SmartWaste Chennai</p>
+    </div>
+
+    <!-- Big Impact Numbers -->
+    <div class="stat-grid" style="margin-bottom:2rem;">
+        <div class="stat-card" style="border-color:rgba(0,230,118,0.3);">
+            <div class="stat-label">KM Saved</div>
+            <div class="stat-value green">{{ km_saved }}</div>
+            <div style="font-size:0.75rem; color:var(--muted); margin-top:0.25rem;">vs standard fixed routes</div>
+        </div>
+        <div class="stat-card" style="border-color:rgba(0,230,118,0.3);">
+            <div class="stat-label">Fuel Saved (Litres)</div>
+            <div class="stat-value green">{{ fuel_saved }}</div>
+            <div style="font-size:0.75rem; color:var(--muted); margin-top:0.25rem;">diesel not burned</div>
+        </div>
+        <div class="stat-card" style="border-color:rgba(0,230,118,0.3);">
+            <div class="stat-label">CO₂ Not Emitted</div>
+            <div class="stat-value green">{{ co2_saved }} kg</div>
+            <div style="font-size:0.75rem; color:var(--muted); margin-top:0.25rem;">≈ {{ trees_equivalent }} trees planted</div>
+        </div>
+        <div class="stat-card" style="border-color:rgba(255,202,40,0.3);">
+            <div class="stat-label">Money Saved</div>
+            <div class="stat-value yellow">₹{{ money_saved }}</div>
+            <div style="font-size:0.75rem; color:var(--muted); margin-top:0.25rem;">fuel cost reduction</div>
+        </div>
+        <div class="stat-card" style="border-color:rgba(68,138,255,0.3);">
+            <div class="stat-label">Overflows Prevented</div>
+            <div class="stat-value blue">{{ overflows_prevented }}</div>
+            <div style="font-size:0.75rem; color:var(--muted); margin-top:0.25rem;">collected before 100%</div>
+        </div>
+        <div class="stat-card" style="border-color:rgba(68,138,255,0.3);">
+            <div class="stat-label">Complaints Resolved</div>
+            <div class="stat-value blue">{{ resolved_complaints }}</div>
+            <div style="font-size:0.75rem; color:var(--muted); margin-top:0.25rem;">total resolved</div>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <!-- Complaints by Zone -->
+        <div class="card">
+            <div class="card-title">📍 Complaints Resolved by Zone</div>
+            <canvas id="zoneChart" height="200"></canvas>
+        </div>
+
+        <!-- Fill pattern by day -->
+        <div class="card">
+            <div class="card-title">📅 Average Bin Fill by Day of Week</div>
+            <canvas id="dayChart" height="200"></canvas>
+        </div>
+    </div>
+
+    <!-- Summary text -->
+    <div class="card" style="margin-top:1.5rem; border-color:rgba(0,230,118,0.2);">
+        <div style="font-family:'Syne',sans-serif; font-size:1rem; font-weight:700; margin-bottom:0.75rem; color:var(--green);">
+            🌱 Environmental Summary
+        </div>
+        <p style="color:var(--muted); font-size:0.9rem; line-height:1.7;">
+            Since SmartWaste was deployed across Chennai, optimized routing has saved
+            <strong style="color:var(--text)">{{ km_saved }} km</strong> of unnecessary truck travel,
+            preventing <strong style="color:var(--text)">{{ co2_saved }} kg of CO₂</strong> from being emitted —
+            equivalent to planting <strong style="color:var(--green)">{{ trees_equivalent }} trees</strong>.
+            <br><br>
+            <strong style="color:var(--text)">{{ overflows_prevented }}</strong> bins were collected proactively
+            before overflowing, keeping Chennai's streets cleaner and reducing health hazards.
+            Total fuel savings of ₹<strong style="color:var(--text)">{{ money_saved }}</strong>
+            demonstrate the financial benefit of smart waste management.
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const zoneData = {{ zone_complaints | tojson }};
+const dayData  = {{ day_patterns | tojson }};
+
+// Zone chart
+new Chart(document.getElementById('zoneChart'), {
+    type: 'bar',
+    data: {
+        labels: zoneData.map(z => z.zone),
+        datasets: [{
+            label: 'Complaints Resolved',
+            data: zoneData.map(z => z.count),
+            backgroundColor: 'rgba(0,230,118,0.3)',
+            borderColor: '#00e676',
+            borderWidth: 1, borderRadius: 6
+        }]
+    },
+    options: {
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { ticks: { color:'#6b7280' }, grid: { color:'#252a3a' } },
+            y: { ticks: { color:'#6b7280' }, grid: { color:'#252a3a' } }
+        }
+    }
+});
+
+// Day pattern chart
+const dayOrder = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const dayMap   = {};
+dayData.forEach(d => dayMap[d.day_of_week] = d.avg_fill);
+
+new Chart(document.getElementById('dayChart'), {
+    type: 'line',
+    data: {
+        labels: dayOrder,
+        datasets: [{
+            label: 'Avg Fill %',
+            data: dayOrder.map(d => dayMap[d] ? parseFloat(dayMap[d]).toFixed(1) : 0),
+            borderColor: '#ffca28',
+            backgroundColor: 'rgba(255,202,40,0.1)',
+            tension: 0.4, fill: true, pointBackgroundColor: '#ffca28'
+        }]
+    },
+    options: {
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { ticks: { color:'#6b7280' }, grid: { color:'#252a3a' } },
+            y: { ticks: { color:'#6b7280' }, grid: { color:'#252a3a' }, min: 0, max: 100 }
+        }
+    }
+});
+</script>
+{% endblock %}

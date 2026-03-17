@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard — SmartWaste{% endblock %}
+
+{% block nav_links %}
+<a href="/admin" class="active">Dashboard</a>
+<a href="/admin/bins">Bins</a>
+<a href="/admin/complaints">Complaints</a>
+<a href="/admin/routes">Routes</a>
+<a href="/admin/workers">Workers</a>
+<a href="/admin/festival">Festival</a>
+<a href="/admin/impact">Impact</a>
+<a href="/admin/predict">Predict</a>
+<a href="/admin/tracking">Tracking</a>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+#live-map{height:420px;border-radius:12px;overflow:hidden;}
+.alert-banner{background:rgba(255,82,82,0.1);border:1px solid rgba(255,82,82,0.3);border-radius:10px;padding:.75rem 1rem;margin-bottom:1.5rem;font-size:.9rem;color:#ff5252;display:flex;align-items:center;gap:.5rem;}
+.route-suggestion{background:var(--surface2);border:1px solid var(--border);border-left:4px solid var(--blue);border-radius:10px;padding:1rem;margin-bottom:1rem;transition:opacity .5s,transform .5s,max-height .5s;}
+.route-suggestion.high{border-left-color:var(--red);}
+.route-suggestion.medium{border-left-color:var(--yellow);}
+.route-suggestion.assigned{opacity:0;transform:translateX(40px);max-height:0;overflow:hidden;padding:0;margin:0;}
+.bin-badge{display:inline-block;background:rgba(68,138,255,0.12);color:var(--blue);border-radius:6px;padding:.2rem .5rem;font-size:.78rem;font-weight:600;margin:.15rem;}
+#toast{position:fixed;bottom:24px;right:24px;z-index:9999;background:var(--surface);border:1px solid var(--green);color:var(--green);padding:.85rem 1.25rem;border-radius:12px;font-size:.9rem;display:none;max-width:340px;box-shadow:0 4px 20px rgba(0,0,0,.4);}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+    <div class="page-header">
+        <h1>Admin Dashboard</h1>
+        <p>Greater Chennai Corporation — Live Waste Monitoring</p>
+    </div>
+
+    <div id="toast"></div>
+
+    {% if red_bins %}
+    <div class="alert-banner">⚠️ {{ red_bins|length }} bin(s) require urgent collection — fill level above 80%</div>
+    {% endif %}
+
+    <div class="stat-grid">
+        <div class="stat-card"><div class="stat-label">Total Bins</div><div class="stat-value blue">{{ bins|length }}</div></div>
+        <div class="stat-card"><div class="stat-label">Critical (Red)</div><div class="stat-value red">{{ red_bins|length }}</div></div>
+        <div class="stat-card"><div class="stat-label">Warning (Yellow)</div><div class="stat-value yellow">{{ yellow_bins|length }}</div></div>
+        <div class="stat-card"><div class="stat-label">Open Complaints</div><div class="stat-value red">{{ open_complaints }}</div></div>
+        <div class="stat-card"><div class="stat-label">Resolved</div><div class="stat-value green">{{ resolved_complaints }}</div></div>
+        <div class="stat-card"><div class="stat-label">Workers On Shift</div><div class="stat-value green">{{ active_workers }}</div></div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:1.5rem;">
+        <div class="card">
+            <div class="card-title">🗺 Live Bin Map — Chennai</div>
+            <div id="live-map"></div>
+            <div style="display:flex;gap:1rem;margin-top:.75rem;font-size:.8rem;">
+                <span>🟢 Normal (&lt;50%)</span><span>🟡 Warning (50-80%)</span><span>🔴 Critical (&gt;80%)</span><span>🔵 Worker</span>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-title">🚨 Recent Complaints</div>
+            {% if recent_complaints %}
+            <table>
+                <thead><tr><th>Bin</th><th>Zone</th><th>Issue</th><th>By</th><th>Status</th></tr></thead>
+                <tbody>
+                {% for c in recent_complaints %}
+                <tr>
+                    <td><strong>{{ c.bin_id }}</strong></td>
+                    <td>{{ c.zone }}</td>
+                    <td style="font-size:.85rem;">{{ c.reason }}</td>
+                    <td style="font-size:.82rem;color:var(--muted);">{{ c.citizen_name or '—' }}</td>
+                    <td><span class="pill pill-{% if c.priority=='high' %}red{% else %}yellow{% endif %}">{{ c.status }}</span></td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <div style="margin-top:.75rem;text-align:right;">
+                <a href="/admin/complaints" class="btn btn-outline btn-sm">View all →</a>
+            </div>
+            {% else %}
+            <p style="color:var(--muted);font-size:.9rem;text-align:center;padding:2rem 0;">No open complaints 🎉</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ML Suggested Routes with AJAX assign -->
+    <div class="card" style="margin-bottom:1.5rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+            <div>
+                <div class="card-title" style="margin-bottom:.25rem;">🤖 Tomorrow's Collection Routes — ML Predicted</div>
+                <div style="font-size:.82rem;color:var(--muted);">Pick a worker and click Assign. Card disappears and worker is notified instantly.</div>
+            </div>
+            <a href="/admin/predict" class="btn btn-outline btn-sm">View Full Predictions →</a>
+        </div>
+
+        {% if suggested_routes %}
+        {% for route in suggested_routes %}
+        <div class="route-suggestion {% if route.total_weight > 250 %}high{% elif route.total_weight > 150 %}medium{% endif %}" id="rcard-{{ loop.index }}">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem;">
+                <div>
+                    <div style="font-weight:700;font-size:1rem;">
+                        {{ route.zone }}
+                        {% if route.route_num > 1 %}<span style="font-size:.8rem;color:var(--muted);font-weight:400;"> — Route {{ route.route_num }}</span>{% endif %}
+                    </div>
+                    <div style="font-size:.82rem;color:var(--muted);margin-top:.25rem;">
+                        {{ route.bins|length }} bins &nbsp;|&nbsp; Est. load: <strong style="color:var(--text)">{{ route.total_weight }} kg</strong> / 300 kg capacity
+                    </div>
+                </div>
+                <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+                    <select id="worker-{{ loop.index }}" style="width:auto;padding:.4rem .7rem;font-size:.85rem;">
+                        <option value="">Pick worker…</option>
+                        {% for w in workers %}
+                        {% if w.assigned_zone == route.zone or w.assigned_zone == 'All Zones' %}
+                        <option value="{{ w.worker_id }}">{{ w.name or w.worker_id }} ({{ w.assigned_zone }}){% if w.on_shift %} 🟢{% else %} ⚪{% endif %}</option>
+                        {% endif %}
+                        {% endfor %}
+                        {% set ns = namespace(has_other=false) %}
+                        {% for w in workers %}{% if w.assigned_zone != route.zone and w.assigned_zone != 'All Zones' %}{% set ns.has_other = true %}{% endif %}{% endfor %}
+                        {% if ns.has_other %}
+                        <option disabled>── Other zones ──</option>
+                        {% for w in workers %}
+                        {% if w.assigned_zone != route.zone and w.assigned_zone != 'All Zones' %}
+                        <option value="{{ w.worker_id }}">{{ w.name or w.worker_id }} ({{ w.assigned_zone }}){% if w.on_shift %} 🟢{% else %} ⚪{% endif %}</option>
+                        {% endif %}
+                        {% endfor %}
+                        {% endif %}
+                    </select>
+                    <button class="btn btn-primary btn-sm" onclick="assignRoute({{ loop.index }},'{{ route.zone }}','{{ route.sequence }}',{{ route.total_weight }})">Assign →</button>
+                </div>
+            </div>
+            <div>
+                {% for b in route.bins %}
+                <span class="bin-badge" title="{{ b.risk }} risk — {{ '%.0f'|format(b.fill_percent) }}% now">
+                    {{ b.bin_id }} <span style="opacity:.6;font-size:.72rem;">{{ '%.0f'|format(b.fill_percent) }}%</span>
+                </span>
+                {% endfor %}
+            </div>
+            <div style="margin-top:.75rem;">
+                <div style="display:flex;justify-content:space-between;font-size:.75rem;color:var(--muted);margin-bottom:.25rem;">
+                    <span>Vehicle Load</span><span>{{ route.total_weight }} / 300 kg</span>
+                </div>
+                <div style="background:var(--border);border-radius:20px;height:5px;">
+                    <div style="width:{{ [(route.total_weight/300*100)|int,100]|min }}%;background:{% if route.total_weight>250 %}#ff5252{% elif route.total_weight>150 %}#ffca28{% else %}#00e676{% endif %};height:5px;border-radius:20px;"></div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="text-align:center;padding:2.5rem 0;color:var(--muted);">
+            <div style="font-size:2rem;margin-bottom:.5rem;">✅</div>
+            <div>No bins predicted to reach 60% fill tomorrow. No routes needed.</div>
+            <div style="font-size:.82rem;margin-top:.5rem;">ML model is using current fill + historical patterns to predict.</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <div class="card-title">🗑 All Bins by Fill Level</div>
+        <table>
+            <thead><tr><th>Bin ID</th><th>Zone</th><th>Area Type</th><th>Fill %</th><th>Status</th><th>Last Updated</th></tr></thead>
+            <tbody>
+            {% for b in bins[:15] %}
+            <tr>
+                <td><strong>{{ b.bin_id }}</strong></td><td>{{ b.zone }}</td><td>{{ b.area_type }}</td>
+                <td>
+                    <div style="display:flex;align-items:center;gap:.75rem;">
+                        <div style="flex:1;background:var(--surface2);border-radius:20px;height:6px;">
+                            <div style="width:{{ [b.fill_percent,100]|min }}%;background:{{'#ff5252' if b.status=='red' else ('#ffca28' if b.status=='yellow' else '#00e676')}};height:6px;border-radius:20px;"></div>
+                        </div>
+                        <span style="font-size:.85rem;min-width:40px;">{{ "%.1f"|format(b.fill_percent) }}%</span>
+                    </div>
+                </td>
+                <td><span class="pill pill-{{ b.status }}">{{ b.status.upper() }}</span></td>
+                <td style="color:var(--muted);font-size:.8rem;">{{ b.last_updated }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% if bins|length > 15 %}
+        <div style="margin-top:1rem;text-align:center;">
+            <a href="/admin/bins" class="btn btn-outline btn-sm">View all {{ bins|length }} bins →</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const map = L.map('live-map').setView([13.067,80.237],11);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+setTimeout(()=>map.invalidateSize(),200);
+const binColors={green:'#00e676',yellow:'#ffca28',red:'#ff5252'};
+const binMarkers={},workerMarkers={};
+function makeBinIcon(c){return L.divIcon({html:`<div style="width:14px;height:14px;background:${c};border-radius:50%;border:2px solid rgba(255,255,255,.4);box-shadow:0 0 8px ${c};"></div>`,className:'',iconSize:[14,14],iconAnchor:[7,7]});}
+function makeWorkerIcon(){return L.divIcon({html:`<div style="width:18px;height:18px;background:#448aff;border-radius:50%;border:2px solid #fff;box-shadow:0 0 10px #448aff;"></div>`,className:'',iconSize:[18,18],iconAnchor:[9,9]});}
+const initialBins={{map_bins|tojson}};
+initialBins.forEach(b=>{if(b.latitude&&b.longitude){binMarkers[b.bin_id]=L.marker([b.latitude,b.longitude],{icon:makeBinIcon(binColors[b.status]||'#00e676')}).bindPopup(`<b>${b.bin_id}</b><br>${b.zone}<br>Fill:${(b.fill_percent||0).toFixed(1)}%`).addTo(map);}});
+async function updateBins(){try{const bins=await fetch('/api/bins/live').then(r=>r.json());bins.forEach(b=>{if(!b.latitude||!b.longitude)return;if(binMarkers[b.bin_id]){binMarkers[b.bin_id].setIcon(makeBinIcon(binColors[b.status]||'#00e676'));binMarkers[b.bin_id].setPopupContent(`<b>${b.bin_id}</b><br>${b.zone}<br>Fill:${(b.fill_percent||0).toFixed(1)}%`);}});}catch(e){}}
+async function updateWorkers(){try{const workers=await fetch('/api/workers/live').then(r=>r.json());workers.forEach(w=>{if(!w.current_lat||!w.current_lng)return;if(workerMarkers[w.worker_id]){workerMarkers[w.worker_id].setLatLng([w.current_lat,w.current_lng]);}else{workerMarkers[w.worker_id]=L.marker([w.current_lat,w.current_lng],{icon:makeWorkerIcon()}).bindPopup(`<b>Worker ${w.worker_id}</b><br>${w.assigned_zone}`).addTo(map);}});}catch(e){}}
+setInterval(updateBins,10000);setInterval(updateWorkers,8000);updateWorkers();
+
+function showToast(msg,ok){
+    const t=document.getElementById('toast');
+    t.style.borderColor=ok?'var(--green)':'var(--red)';
+    t.style.color=ok?'var(--green)':'var(--red)';
+    t.textContent=msg; t.style.display='block';
+    setTimeout(()=>{t.style.display='none';},3500);
+}
+async function assignRoute(idx,zone,sequence,est_weight){
+    const sel=document.getElementById('worker-'+idx);
+    const worker_id=sel?sel.value:'';
+    if(!worker_id){showToast('⚠ Please pick a worker first',false);return;}
+    const fd=new FormData();
+    fd.append('worker_id',worker_id);fd.append('zone',zone);
+    fd.append('sequence',sequence);fd.append('est_weight',est_weight);
+    try{
+        const res=await fetch('/admin/generate_route',{method:'POST',body:fd,headers:{'X-Requested-With':'XMLHttpRequest'}});
+        let data;
+        try{ data=await res.json(); }
+        catch{ showToast('Server error (status '+res.status+') — try refreshing page',false); return; }
+        if(data.ok){
+            const card=document.getElementById('rcard-'+idx);
+            if(card){card.classList.add('assigned');setTimeout(()=>{card.remove();},600);}
+            showToast('✓ Route assigned to '+worker_id+' — worker notified',true);
+        }else{
+            if(res.status===401){showToast('Session expired — please refresh and log in again',false);}
+            else{showToast('Error: '+(data.error||'Unknown'),false);}
+        }
+    }catch(e){showToast('Connection error — is the server running?',false);}
+}
+</script>
+{% endblock %}

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Prediction — SmartWaste Admin{% endblock %}
+
+{% block nav_links %}
+<a href="/admin">Dashboard</a>
+<a href="/admin/bins">Bins</a>
+<a href="/admin/complaints">Complaints</a>
+<a href="/admin/routes">Routes</a>
+<a href="/admin/workers">Workers</a>
+<a href="/admin/festival">Festival</a>
+<a href="/admin/impact">Impact</a>
+<a href="/admin/predict" class="active">Predict</a>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+    <div class="page-header">
+        <h1>ML Overflow Prediction</h1>
+        <p>Random Forest model trained on {{ total_readings }} weight readings — predicts which bins will overflow next</p>
+    </div>
+
+    <div class="stat-grid" style="margin-bottom:2rem;">
+        <div class="stat-card">
+            <div class="stat-label">Model Accuracy</div>
+            <div class="stat-value green">{{ accuracy }}%</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">High Risk Bins</div>
+            <div class="stat-value red">{{ predictions | selectattr('risk','equalto','HIGH') | list | length }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Medium Risk</div>
+            <div class="stat-value yellow">{{ predictions | selectattr('risk','equalto','MEDIUM') | list | length }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Low Risk</div>
+            <div class="stat-value green">{{ predictions | selectattr('risk','equalto','LOW') | list | length }}</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <div class="card-title" style="margin-bottom:0;">🤖 Bin Overflow Risk Predictions</div>
+            <a href="/admin/predict/retrain" class="btn btn-outline btn-sm">🔄 Retrain Model</a>
+        </div>
+        <table>
+            <thead>
+                <tr><th>Bin ID</th><th>Zone</th><th>Area Type</th><th>Current Fill</th><th>Overflow Probability</th><th>Risk Level</th><th>Action</th></tr>
+            </thead>
+            <tbody>
+            {% for p in predictions %}
+            <tr>
+                <td><strong>{{ p.bin_id }}</strong></td>
+                <td>{{ p.zone }}</td>
+                <td>{{ p.area_type }}</td>
+                <td>
+                    <div style="display:flex; align-items:center; gap:0.5rem;">
+                        <div style="width:60px; background:var(--surface2); border-radius:20px; height:5px;">
+                            <div style="width:{{ [p.fill_percent,100]|min }}%; background:{{'#ff5252' if p.fill_percent>=80 else ('#ffca28' if p.fill_percent>=50 else '#00e676')}}; height:5px; border-radius:20px;"></div>
+                        </div>
+                        {{ "%.0f"|format(p.fill_percent) }}%
+                    </div>
+                </td>
+                <td>
+                    <div style="display:flex; align-items:center; gap:0.5rem;">
+                        <div style="width:80px; background:var(--surface2); border-radius:20px; height:5px;">
+                            <div style="width:{{ p.overflow_probability }}%; background:{{'#ff5252' if p.overflow_probability>=70 else ('#ffca28' if p.overflow_probability>=40 else '#00e676')}}; height:5px; border-radius:20px;"></div>
+                        </div>
+                        {{ p.overflow_probability }}%
+                    </div>
+                </td>
+                <td>
+                    <span class="pill pill-{% if p.risk=='HIGH' %}red{% elif p.risk=='MEDIUM' %}yellow{% else %}green{% endif %}">
+                        {{ p.risk }}
+                    </span>
+                </td>
+                <td>
+                    {% if p.risk in ['HIGH','MEDIUM'] %}
+                    <a href="/admin/routes" class="btn btn-outline btn-sm">Add to Route</a>
+                    {% else %}
+                    <span style="color:var(--muted); font-size:0.8rem;">OK</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

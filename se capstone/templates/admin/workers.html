@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Workers — SmartWaste Admin{% endblock %}
+
+{% block nav_links %}
+<a href="/admin">Dashboard</a>
+<a href="/admin/bins">Bins</a>
+<a href="/admin/complaints">Complaints</a>
+<a href="/admin/routes">Routes</a>
+<a href="/admin/workers" class="active">Workers</a>
+<a href="/admin/festival">Festival</a>
+<a href="/admin/impact">Impact</a>
+<a href="/admin/predict">Predict</a>
+<a href="/admin/tracking">Tracking</a>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+    <div class="page-header">
+        <h1>Worker Management</h1>
+        <p>All workers and their current status</p>
+    </div>
+
+    <div class="card">
+        <table>
+            <thead>
+                <tr><th>Worker ID</th><th>Name</th><th>Email</th><th>Zone</th><th>Vehicle</th><th>Avg Speed</th><th>Shift Status</th></tr>
+            </thead>
+            <tbody>
+            {% for w in workers %}
+            <tr>
+                <td><strong>{{ w.worker_id }}</strong></td>
+                <td>{{ w.name or '—' }}</td>
+                <td style="font-size:0.85rem; color:var(--muted);">{{ w.email or '—' }}</td>
+                <td>{{ w.assigned_zone }}</td>
+                <td>{{ w.vehicle_id }}</td>
+                <td>{{ w.avg_speed_kmph }} km/h</td>
+                <td>
+                    {% if w.on_shift %}
+                    <span class="pill pill-green">🟢 On Shift</span>
+                    {% else %}
+                    <span class="pill pill-grey">⚫ Off Shift</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

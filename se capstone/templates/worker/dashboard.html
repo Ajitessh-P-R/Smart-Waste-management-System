@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}Worker Dashboard — SmartWaste{% endblock %}
+{% block nav_links %}<a href="/worker" class="active">Dashboard</a>{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+#worker-map{height:320px;border-radius:10px;background:var(--surface2);}
+#route-map{height:420px;border-radius:10px;background:var(--surface2);}
+.stop-row{display:flex;align-items:center;justify-content:space-between;padding:.75rem;background:var(--surface2);border-radius:8px;margin-bottom:.5rem;border-left:3px solid var(--border);}
+.stop-row.collected{border-left-color:var(--green);opacity:.6;}
+#notif-popup{position:fixed;top:80px;right:24px;z-index:9999;background:var(--surface);border:1px solid var(--blue);color:var(--text);padding:1rem 1.25rem;border-radius:12px;font-size:.9rem;max-width:320px;box-shadow:0 4px 20px rgba(0,0,0,.5);display:none;}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page">
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+            <h1>Worker Dashboard</h1>
+            <p>{{ session.zone }} — {{ session.user_name }} ({{ worker_id }})</p>
+        </div>
+        <form method="POST" action="/worker/shift">
+            {% if worker and worker.on_shift %}
+            <input type="hidden" name="action" value="stop">
+            <button type="submit" class="btn btn-danger">⏹ End Shift</button>
+            {% else %}
+            <input type="hidden" name="action" value="start">
+            <button type="submit" class="btn btn-primary">▶ Start Shift</button>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Notification popup (JS driven) -->
+    <div id="notif-popup">
+        <div style="font-weight:700;margin-bottom:.4rem;color:var(--blue);">📋 New Route Assigned</div>
+        <div id="notif-msg"></div>
+        <button onclick="document.getElementById('notif-popup').style.display='none'" class="btn btn-outline btn-sm" style="margin-top:.75rem;width:100%;">Dismiss</button>
+    </div>
+
+    {% if worker and worker.on_shift %}
+    <div style="background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.2);border-radius:10px;padding:.75rem 1rem;margin-bottom:1.5rem;font-size:.9rem;color:var(--green);">
+        ✅ Shift active — drag the <strong style="color:#448aff;">blue pin</strong> to update your live location.
+    </div>
+    {% endif %}
+
+    <div class="grid-2" style="margin-bottom:1.5rem;">
+        <!-- Location map -->
+        <div class="card">
+            <div class="card-title">📍 Your Live Location — Drag Pin to Update</div>
+            <div id="worker-map"></div>
+            <div style="margin-top:.5rem;font-size:.8rem;color:var(--muted);" id="loc-status">
+                {% if not worker or not worker.on_shift %}Start shift to enable location tracking.{% else %}Drag the blue pin to set your location.{% endif %}
+            </div>
+        </div>
+
+        <!-- Route card -->
+        <div class="card">
+            <div class="card-title">🗺 Today's Route</div>
+            {% if active_route %}
+            <div style="padding:.6rem .75rem;background:var(--surface2);border-radius:8px;font-size:.85rem;color:var(--muted);margin-bottom:.75rem;display:flex;justify-content:space-between;align-items:center;">
+                <span>Zone: <strong style="color:var(--text)">{{ active_route.zone }}</strong> &nbsp;|&nbsp; Est: <strong style="color:var(--text)">{{ active_route.estimated_duration_min or '—' }} min</strong></span>
+                <span class="pill pill-{% if active_route.status=='active' %}yellow{% elif active_route.status=='completed' %}green{% else %}blue{% endif %}">{{ active_route.status }}</span>
+            </div>
+
+            {% if active_route.status == 'pending' %}
+            <!-- Admin assigned but worker hasn't activated yet -->
+            <div style="background:rgba(68,138,255,.08);border:1px solid rgba(68,138,255,.2);border-radius:8px;padding:.75rem 1rem;margin-bottom:.75rem;font-size:.85rem;color:var(--blue);">
+                📋 Admin assigned this route. Click Generate to activate and see it on the map.
+            </div>
+            {% endif %}
+
+            {% set stops = active_route.stops if active_route.stops else [] %}
+            {% for s in stops %}
+            <div class="stop-row {% if s.status == 'collected' %}collected{% endif %}">
+                <div style="display:flex;align-items:center;gap:.75rem;">
+                    <div style="width:26px;height:26px;background:{% if s.status=='collected' %}rgba(0,230,118,.15){% else %}rgba(68,138,255,.15){% endif %};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:{% if s.status=='collected' %}var(--green){% else %}var(--blue){% endif %};">{{ loop.index }}</div>
+                    <strong>{{ s.bin_id }}</strong>
+                </div>
+                {% if s.status == 'collected' %}
+                <span style="color:var(--green);font-size:.85rem;">✓ Collected</span>
+                {% elif active_route.status == 'active' %}
+                <form method="POST" action="/worker/collect_bin">
+                    <input type="hidden" name="bin_id" value="{{ s.bin_id }}">
+                    <button type="submit" class="btn btn-primary btn-sm">✓ Collect</button>
+                </form>
+                {% else %}
+                <span style="color:var(--muted);font-size:.82rem;">⏳ Pending</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            {% if active_route.status == 'pending' %}
+            <form method="POST" action="/worker/generate_route" style="margin-top:.75rem;">
+                <button type="submit" class="btn btn-primary" style="width:100%;">⚡ Generate Route & Start</button>
+            </form>
+            {% elif active_route.status == 'active' %}
+            <button onclick="showRoute()" class="btn btn-outline" style="width:100%;margin-top:.75rem;">🛣 Show on Map with Roads</button>
+            {% else %}
+            <div style="text-align:center;padding:1rem 0;color:var(--green);font-size:.9rem;">✅ Route completed!</div>
+            {% endif %}
+
+            {% else %}
+            <div style="text-align:center;padding:1.5rem 0;">
+                <p style="color:var(--muted);font-size:.9rem;margin-bottom:1rem;">No route assigned yet</p>
+                {% if worker and worker.on_shift %}
+                <div style="font-size:.82rem;color:var(--muted);">Wait for admin to assign a route from the dashboard.</div>
+                {% else %}
+                <div style="font-size:.82rem;color:var(--muted);">Start your shift first, then wait for admin to assign a route.</div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Route road map (shown after Generate) -->
+    <div class="card" id="route-card" style="display:none;margin-bottom:1.5rem;">
+        <div class="card-title">🛣 Optimized Route on Real Roads</div>
+        <div id="route-map"></div>
+        <div id="route-info" style="margin-top:.75rem;font-size:.85rem;color:var(--muted);"></div>
+    </div>
+
+    <!-- Complaints -->
+    <div class="card">
+        <div class="card-title">📋 Assigned Complaints</div>
+        {% if my_complaints %}
+        {% for c in my_complaints %}
+        <div style="padding:1rem;background:var(--surface2);border-radius:8px;margin-bottom:.75rem;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:.5rem;">
+                <strong>Bin {{ c.bin_id }}</strong>
+                <span class="pill pill-{% if c.priority=='high' %}red{% elif c.priority=='medium' %}yellow{% else %}green{% endif %}">{{ c.priority }}</span>
+            </div>
+            <div style="font-size:.85rem;color:var(--muted);margin-bottom:.75rem;">{{ c.description or c.reason }}</div>
+            {% if c.latitude and c.longitude %}
+            <a href="https://maps.google.com/?q={{ c.latitude }},{{ c.longitude }}" target="_blank" class="btn btn-outline btn-sm" style="margin-right:.5rem;">🗺 Navigate</a>
+            {% endif %}
+            <form method="POST" action="/worker/update_complaint" style="display:inline;">
+                <input type="hidden" name="complaint_id" value="{{ c.id }}">
+                <input type="hidden" name="status" value="resolved">
+                <button type="submit" class="btn btn-primary btn-sm">✓ Resolved</button>
+            </form>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p style="color:var(--muted);text-align:center;padding:2rem 0;font-size:.9rem;">No complaints assigned 🎉</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const ORS_KEY  = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImI0NDRiNjE2MzlmZDQzY2E4ODBiMTkzZjUxZjQ2OGYwIiwiaCI6Im11cm11cjY0In0=";
+const WORKER_ID= "{{ worker_id }}";
+const ON_SHIFT = {{ 'true' if worker and worker.on_shift else 'false' }};
+const routeBins= {{ route_bins | tojson }};
+const ZONE_HQ  = {'Adyar':[13.0067,80.2206],'Tambaram':[12.9249,80.1000],'Velachery':[12.9816,80.2209],'Anna Nagar':[13.0850,80.2101],'T. Nagar':[13.0418,80.2341],'All Zones':[13.0418,80.2341]};
+const workerZone = "{{ session.zone }}";
+const hq   = ZONE_HQ[workerZone]||[13.0418,80.2341];
+const savedLat = {{ worker.current_lat if worker and worker.current_lat else 'null' }};
+const savedLng = {{ worker.current_lng if worker and worker.current_lng else 'null' }};
+const defLat = savedLat||hq[0], defLng = savedLng||hq[1];
+
+let wMap,wMarker;
+function initWorkerMap(){
+    wMap=L.map('worker-map',{zoomControl:true}).setView([defLat,defLng],14);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(wMap);
+    setTimeout(()=>wMap.invalidateSize(),200);
+    const wIcon=L.divIcon({html:`<div style="width:22px;height:22px;background:#448aff;border-radius:50%;border:3px solid #fff;box-shadow:0 0 14px #448aff;cursor:${ON_SHIFT?'grab':'default'};"></div>`,className:'',iconSize:[22,22],iconAnchor:[11,11]});
+    wMarker=L.marker([defLat,defLng],{icon:wIcon,draggable:ON_SHIFT}).addTo(wMap);
+    wMarker.bindPopup(`<b>You (${WORKER_ID})</b><br>${workerZone}`).openPopup();
+    L.marker(hq,{icon:L.divIcon({html:`<div style="width:14px;height:14px;background:#ffca28;border-radius:3px;border:2px solid #fff;"></div>`,className:'',iconSize:[14,14],iconAnchor:[7,7]})}).bindPopup(`<b>${workerZone} HQ</b>`).addTo(wMap);
+    if(ON_SHIFT){
+        wMarker.on('dragend',function(e){const p=e.target.getLatLng();sendLoc(p.lat,p.lng);document.getElementById('loc-status').textContent=`📍 Location updated — ${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}`;});
+        if(!savedLat){sendLoc(hq[0],hq[1]);document.getElementById('loc-status').textContent=`📍 Starting from ${workerZone} HQ`;}
+    }
+}
+function sendLoc(lat,lng){fetch('/worker/update_location',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lat,lng})});}
+
+let routeMapInit=false;
+async function showRoute(){
+    const card=document.getElementById('route-card');
+    card.style.display='block'; card.scrollIntoView({behavior:'smooth'});
+    if(routeMapInit)return; routeMapInit=true;
+    await new Promise(r=>setTimeout(r,100));
+    const rMap=L.map('route-map').setView([13.0418,80.2341],12);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(rMap);
+    rMap.invalidateSize();
+    if(!routeBins||!routeBins.length){document.getElementById('route-info').textContent='No bin coordinates available.';return;}
+    routeBins.forEach((b,i)=>{
+        const color=b.status==='red'?'#ff5252':b.status==='yellow'?'#ffca28':'#00e676';
+        L.marker([b.lat,b.lng],{icon:L.divIcon({html:`<div style="background:${color};color:#000;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.8rem;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4);">${i+1}</div>`,className:'',iconSize:[28,28],iconAnchor:[14,14]})}).bindPopup(`<b>Stop ${i+1}: ${b.bin_id}</b><br>Fill: ${(b.fill_percent||0).toFixed(0)}%`).addTo(rMap);
+    });
+    try{
+        const coords=routeBins.map(b=>[b.lng,b.lat]);
+        const res=await fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson',{method:'POST',headers:{'Authorization':ORS_KEY,'Content-Type':'application/json'},body:JSON.stringify({coordinates:coords})});
+        const data=await res.json();
+        if(data.features&&data.features[0]){
+            const line=data.features[0].geometry.coordinates.map(c=>[c[1],c[0]]);
+            const poly=L.polyline(line,{color:'#448aff',weight:5,opacity:.85}).addTo(rMap);
+            rMap.fitBounds(poly.getBounds(),{padding:[40,40]});
+            const seg=data.features[0].properties.segments;
+            const dist=(seg.reduce((a,s)=>a+s.distance,0)/1000).toFixed(1);
+            const mins=Math.round(seg.reduce((a,s)=>a+s.duration,0)/60);
+            document.getElementById('route-info').innerHTML=`📏 <strong>${dist} km</strong> &nbsp;|&nbsp; ⏱ <strong>${mins} min</strong> &nbsp;|&nbsp; 🗑 <strong>${routeBins.length}</strong> bins`;
+        }else throw new Error();
+    }catch{
+        const ll=routeBins.map(b=>[b.lat,b.lng]);
+        const poly=L.polyline(ll,{color:'#448aff',weight:4,dashArray:'10,8'}).addTo(rMap);
+        rMap.fitBounds(poly.getBounds(),{padding:[40,40]});
+        document.getElementById('route-info').textContent='Showing direct path (road routing unavailable)';
+    }
+}
+
+// Check for new notifications on load
+async function checkNewRoute(){
+    try{
+        const res=await fetch('/api/notifications');
+        const data=await res.json();
+        const route=data.find(n=>n.type==='route_assigned');
+        if(route){
+            document.getElementById('notif-msg').textContent=route.message;
+            document.getElementById('notif-popup').style.display='block';
+            setTimeout(()=>{document.getElementById('notif-popup').style.display='none';},8000);
+        }
+    }catch(e){}
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+    initWorkerMap();
+    checkNewRoute();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Report Issue — SmartWaste{% endblock %}
+
+{% block nav_links %}
+<a href="/citizen">Home</a>
+<a href="/citizen/complaint" class="active">Report Issue</a>
+<a href="/citizen/track">Track Complaints</a>
+{% endblock %}
+
+{% block content %}
+<div class="page" style="max-width:600px;">
+    <div class="page-header">
+        <h1>Report a Bin Issue</h1>
+        <p>Scan QR code or choose your area manually</p>
+    </div>
+
+    <div class="card">
+        {% if scheduled_msg %}
+        <div style="background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.3);border-radius:8px;padding:1rem 1.25rem;margin-bottom:1rem;font-size:.92rem;color:var(--green);">
+            ✅ {{ scheduled_msg }}
+            <div style="margin-top:.5rem;">
+                <a href="/citizen" class="btn btn-outline btn-sm">Back to Home</a>
+            </div>
+        </div>
+        {% elif error %}
+        <div style="background:rgba(255,82,82,.1);border:1px solid rgba(255,82,82,.3);border-radius:8px;padding:.75rem 1rem;margin-bottom:1rem;font-size:.88rem;color:#ff5252;">
+            ⚠ {{ error }}
+        </div>
+        {% endif %}
+        {% if not scheduled_msg %}
+        <form method="POST">
+            <div class="form-group">
+                <label>Select Bin</label>
+                <select name="bin_id" required>
+                    <option value="">-- Choose a bin --</option>
+                    {% for b in bins %}
+                    <option value="{{ b.bin_id }}" {% if preselected == b.bin_id %}selected{% endif %}>
+                        {{ b.bin_id }} — {{ b.zone }} ({{ b.area_type }}) — {{ "%.0f"|format(b.fill_percent) }}% full
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Issue Type</label>
+                <select name="reason" required>
+                    <option value="">-- Select issue --</option>
+                    <option value="Overflow">Bin Overflowing</option>
+                    <option value="Damaged">Bin Damaged / Broken</option>
+                    <option value="Missing Lid">Lid Missing</option>
+                    <option value="Not Collected">Scheduled Collection Missed</option>
+                    <option value="Bad Smell">Bad Smell / Hygiene Issue</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Description (optional)</label>
+                <textarea name="description" rows="3" placeholder="Describe the issue in detail..."></textarea>
+            </div>
+
+            {% if preselected %}
+            <div style="background:rgba(0,230,118,0.08); border:1px solid rgba(0,230,118,0.2); border-radius:8px; padding:0.75rem 1rem; margin-bottom:1rem; font-size:0.85rem; color:var(--green);">
+                ✅ Bin {{ preselected }} auto-selected from QR scan
+            </div>
+            {% endif %}
+
+            <button type="submit" class="btn btn-primary" style="width:100%;">Submit Complaint →</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

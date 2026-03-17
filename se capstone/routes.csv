@@ -1,0 +1,21 @@
+route_id,zone,bins_sequence,estimated_duration_min
+R001,T. Nagar,B018 -> B010 -> B017 -> B005 -> B012,63
+R002,Velachery,B022 -> B003 -> B013 -> B023,68
+R003,Anna Nagar,B007 -> B009 -> B008 -> B004 -> B020,58
+R004,T. Nagar,B017 -> B012 -> B005 -> B018 -> B010,54
+R005,Anna Nagar,B016 -> B009 -> B008 -> B020 -> B004,55
+R006,Tambaram,B025 -> B002 -> B024 -> B019,90
+R007,T. Nagar,B010 -> B018 -> B017 -> B012 -> B005,52
+R008,Tambaram,B019 -> B024 -> B025 -> B002,83
+R009,Anna Nagar,B008 -> B009 -> B020 -> B016 -> B007,68
+R010,T. Nagar,B005 -> B010 -> B017 -> B018 -> B012,89
+R011,Tambaram,B025 -> B002 -> B024 -> B019,89
+R012,T. Nagar,B005 -> B018 -> B010 -> B017 -> B012,72
+R013,Anna Nagar,B008 -> B020 -> B007 -> B004 -> B016,66
+R014,Velachery,B023 -> B013 -> B003 -> B022,52
+R015,Anna Nagar,B007 -> B008 -> B009 -> B016 -> B020,48
+R016,Tambaram,B025 -> B019 -> B002 -> B024,43
+R017,T. Nagar,B005 -> B012 -> B018 -> B010 -> B017,63
+R018,Anna Nagar,B020 -> B009 -> B004 -> B007 -> B008,46
+R019,Anna Nagar,B004 -> B007 -> B009 -> B008 -> B016,47
+R020,Tambaram,B019 -> B025 -> B024 -> B002,45

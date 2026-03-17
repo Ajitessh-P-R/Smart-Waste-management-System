@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Routes — SmartWaste Admin{% endblock %}
+{% block nav_links %}
+<a href="/admin">Dashboard</a><a href="/admin/bins">Bins</a><a href="/admin/complaints">Complaints</a>
+<a href="/admin/routes" class="active">Routes</a><a href="/admin/workers">Workers</a>
+<a href="/admin/festival">Festival</a><a href="/admin/impact">Impact</a>
+<a href="/admin/predict">Predict</a><a href="/admin/tracking">Tracking</a>
+{% endblock %}
+{% block content %}
+<div class="page">
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <div><h1>Route Progress</h1><p>Live stop-by-stop status for all assigned routes</p></div>
+        <span style="font-size:.82rem;color:var(--muted);" id="last-update">Auto-refreshes every 8s</span>
+    </div>
+    <div id="routes-container"><div style="text-align:center;padding:4rem 0;color:var(--muted);">Loading routes…</div></div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+async function loadRoutes(){
+    try{
+        const routes=await fetch('/api/route_progress').then(r=>r.json());
+        const el=document.getElementById('routes-container');
+        if(!routes.length){
+            el.innerHTML='<div class="card" style="text-align:center;padding:3rem 0;color:var(--muted);"><div style="font-size:2rem;margin-bottom:.5rem;">📋</div><div>No routes assigned yet. Assign routes from the Dashboard.</div></div>';
+            return;
+        }
+        const active    = routes.filter(r=>r.status==='active');
+        const pending   = routes.filter(r=>r.status==='pending');
+        const completed = routes.filter(r=>r.status==='completed');
+        let html='';
+        if(active.length||pending.length){
+            html+='<div class="card-title" style="margin-bottom:.75rem;font-family:Syne,sans-serif;font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">🟢 Active &amp; Pending Routes</div>';
+            [...active,...pending].forEach(r=>{ html+=renderRoute(r); });
+        }
+        if(completed.length){
+            html+='<div class="card-title" style="margin:.5rem 0 .75rem;font-family:Syne,sans-serif;font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">✅ Completed Routes</div>';
+            completed.forEach(r=>{ html+=renderRoute(r); });
+        }
+        el.innerHTML=html;
+        document.getElementById('last-update').textContent='Updated: '+new Date().toLocaleTimeString();
+    }catch(e){ console.error(e); }
+}
+
+function renderRoute(r){
+    const statusColor = r.status==='completed'?'var(--green)':r.status==='active'?'var(--yellow)':'var(--blue)';
+    const pct = r.total_stops ? Math.round((r.done_stops/r.total_stops)*100) : 0;
+    const stops = r.stops_detail || [];
+    let stopsHtml = stops.map((s,i)=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem .75rem;border-top:1px solid var(--border);font-size:.85rem;">
+            <div style="display:flex;align-items:center;gap:.6rem;">
+                <div style="width:22px;height:22px;background:${s.status==='collected'?'rgba(0,230,118,.15)':'rgba(68,138,255,.12)'};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:${s.status==='collected'?'var(--green)':'var(--blue)'};">${i+1}</div>
+                <strong>${s.bin_id}</strong>
+            </div>
+            <span style="font-size:.8rem;color:${s.status==='collected'?'var(--green)':'var(--muted)'};">
+                ${s.status==='collected'?'✓ Collected':'⏳ Not collected'}
+            </span>
+        </div>`).join('');
+    return `
+    <div style="background:var(--surface);border:1px solid var(--border);border-left:4px solid ${statusColor};border-radius:10px;margin-bottom:1rem;overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:.85rem 1rem;">
+            <div>
+                <div style="font-weight:700;font-size:.95rem;">${r.worker_name||r.worker_id} <span style="color:var(--muted);font-weight:400;font-size:.85rem;">— ${r.zone}</span></div>
+                <div style="font-size:.8rem;color:var(--muted);margin-top:.2rem;">
+                    Worker ID: ${r.worker_id} &nbsp;·&nbsp; Est: ${r.estimated_duration_min||'—'} min &nbsp;·&nbsp; ${r.created_at.slice(0,16)}
+                </div>
+            </div>
+            <div style="text-align:right;">
+                <span class="pill pill-${r.status==='completed'?'green':r.status==='active'?'yellow':'blue'}">${r.status}</span>
+                <div style="font-size:.82rem;color:var(--muted);margin-top:.35rem;">${r.done_stops}/${r.total_stops} collected</div>
+            </div>
+        </div>
+        <div style="padding:.4rem 1rem .6rem;">
+            <div style="background:var(--border);border-radius:20px;height:5px;">
+                <div style="width:${pct}%;background:${r.status==='completed'?'var(--green)':'var(--blue)'};height:5px;border-radius:20px;transition:width .4s;"></div>
+            </div>
+        </div>
+        ${stopsHtml}
+    </div>`;
+}
+
+loadRoutes();
+setInterval(loadRoutes, 8000);
+</script>
+{% endblock %}

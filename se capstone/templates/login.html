@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartWaste Chennai — Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg:#0d0f14; --surface:#151820; --surface2:#1c2030;
+            --border:#252a3a; --green:#00e676; --text:#e8eaf0; --muted:#6b7280;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            background:var(--bg); color:var(--text);
+            font-family:'DM Sans',sans-serif;
+            min-height:100vh; display:flex;
+        }
+
+        /* Left panel */
+        .left {
+            flex:1;
+            background: linear-gradient(135deg, #0d1f0e 0%, #0d0f14 60%);
+            display:flex; flex-direction:column;
+            justify-content:center; padding:4rem;
+            position:relative; overflow:hidden;
+        }
+        .left::before {
+            content:'';
+            position:absolute; top:-100px; left:-100px;
+            width:400px; height:400px;
+            background: radial-gradient(circle, rgba(0,230,118,0.08) 0%, transparent 70%);
+            border-radius:50%;
+        }
+        .left::after {
+            content:'';
+            position:absolute; bottom:-50px; right:-50px;
+            width:300px; height:300px;
+            background: radial-gradient(circle, rgba(0,230,118,0.05) 0%, transparent 70%);
+            border-radius:50%;
+        }
+        .brand {
+            font-family:'Syne',sans-serif;
+            font-size:2.5rem; font-weight:800;
+            margin-bottom:0.5rem;
+            position:relative; z-index:1;
+        }
+        .brand span { color:var(--green); }
+        .tagline {
+            color:var(--muted); font-size:1rem;
+            margin-bottom:3rem; position:relative; z-index:1;
+        }
+        .feature-list { position:relative; z-index:1; }
+        .feature {
+            display:flex; align-items:center; gap:0.75rem;
+            margin-bottom:1rem; color:var(--muted); font-size:0.95rem;
+        }
+        .feature-icon {
+            width:36px; height:36px;
+            background:rgba(0,230,118,0.1);
+            border:1px solid rgba(0,230,118,0.2);
+            border-radius:8px;
+            display:flex; align-items:center; justify-content:center;
+            font-size:1rem; flex-shrink:0;
+        }
+        .chennai-tag {
+            margin-top:3rem; position:relative; z-index:1;
+            font-size:0.8rem; color:rgba(107,114,128,0.6);
+            display:flex; align-items:center; gap:0.5rem;
+        }
+
+        /* Right panel */
+        .right {
+            width:440px; flex-shrink:0;
+            display:flex; align-items:center; justify-content:center;
+            padding:3rem;
+            border-left:1px solid var(--border);
+        }
+        .login-box { width:100%; }
+        .login-title {
+            font-family:'Syne',sans-serif;
+            font-size:1.6rem; font-weight:800;
+            margin-bottom:0.25rem;
+        }
+        .login-sub { color:var(--muted); font-size:0.9rem; margin-bottom:2rem; }
+
+        .form-group { margin-bottom:1.25rem; }
+        label { font-size:0.8rem; color:var(--muted); margin-bottom:0.4rem; display:block; text-transform:uppercase; letter-spacing:0.05em; }
+        input {
+            width:100%; background:var(--surface2);
+            border:1px solid var(--border); color:var(--text);
+            padding:0.75rem 1rem; border-radius:10px;
+            font-size:0.95rem; outline:none;
+            font-family:'DM Sans',sans-serif;
+            transition: border-color 0.2s;
+        }
+        input:focus { border-color:var(--green); }
+
+        .btn-login {
+            width:100%; background:var(--green); color:#000;
+            border:none; padding:0.85rem;
+            border-radius:10px; font-size:1rem;
+            font-weight:700; cursor:pointer;
+            font-family:'Syne',sans-serif;
+            transition: background 0.2s, transform 0.1s;
+            margin-top:0.5rem;
+        }
+        .btn-login:hover { background:#00c853; }
+        .btn-login:active { transform:scale(0.98); }
+
+        .error-msg {
+            background:rgba(255,82,82,0.1);
+            border:1px solid rgba(255,82,82,0.3);
+            color:#ff5252; padding:0.75rem 1rem;
+            border-radius:8px; font-size:0.85rem;
+            margin-bottom:1rem;
+        }
+
+        .demo-logins {
+            margin-top:2rem;
+            padding-top:1.5rem;
+            border-top:1px solid var(--border);
+        }
+        .demo-title { font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.75rem; }
+        .demo-btn {
+            display:block; width:100%;
+            background:var(--surface2); border:1px solid var(--border);
+            color:var(--text); padding:0.6rem 1rem;
+            border-radius:8px; font-size:0.85rem;
+            cursor:pointer; text-align:left;
+            margin-bottom:0.5rem;
+            transition: border-color 0.2s;
+            font-family:'DM Sans',sans-serif;
+        }
+        .demo-btn:hover { border-color:var(--green); }
+        .demo-btn span { color:var(--muted); font-size:0.8rem; float:right; }
+
+        .register-link { margin-top:1rem; text-align:center; font-size:0.85rem; color:var(--muted); }
+        .register-link a { color:var(--green); text-decoration:none; }
+    </style>
+</head>
+<body>
+    <div class="left">
+        <div class="brand">Smart<span>Waste</span></div>
+        <div class="tagline">Intelligent Waste Management for Chennai</div>
+        <div class="feature-list">
+            <div class="feature">
+                <div class="feature-icon">📡</div>
+                <div>Live bin monitoring with real-time weight sensors</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🗺</div>
+                <div>Optimized collection routes across Chennai zones</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">📱</div>
+                <div>QR-based complaint filing for citizens</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🤖</div>
+                <div>ML-powered overflow prediction</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🌱</div>
+                <div>Real-time environmental impact tracking</div>
+            </div>
+        </div>
+        <div class="chennai-tag">
+            📍 Greater Chennai Corporation — 200 Wards
+        </div>
+    </div>
+
+    <div class="right">
+        <div class="login-box">
+            <div class="login-title">Welcome back</div>
+            <div class="login-sub">Sign in to your account</div>
+
+            {% if error %}
+            <div class="error-msg">⚠ {{ error }}</div>
+            {% endif %}
+
+            <form method="POST">
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" name="email" placeholder="you@smartwaste.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn-login">Sign In →</button>
+            </form>
+
+            <div class="demo-logins">
+                <div class="demo-title">Quick Demo Login</div>
+                <button class="demo-btn" onclick="fillLogin('admin@smartwaste.com','admin123')">
+                    🔴 Admin <span>admin123</span>
+                </button>
+                <button class="demo-btn" onclick="fillLogin('w01@smartwaste.com','worker123')">
+                    🟡 Worker W01 — Anna Nagar <span>worker123</span>
+                </button>
+                <button class="demo-btn" onclick="fillLogin('w02@smartwaste.com','worker123')">
+                    🟡 Worker W02 — Tambaram <span>worker123</span>
+                </button>
+                <button class="demo-btn" onclick="fillLogin('w03@smartwaste.com','worker123')">
+                    🟡 Worker W03 — Anna Nagar <span>worker123</span>
+                </button>
+                <button class="demo-btn" onclick="fillLogin('w04@smartwaste.com','worker123')">
+                    🟡 Worker W04 — Velachery <span>worker123</span>
+                </button>
+                <button class="demo-btn" onclick="fillLogin('w05@smartwaste.com','worker123')">
+                    🟡 Worker W05 — Velachery <span>worker123</span>
+                </button>
+                <button class="demo-btn" onclick="fillLogin('w06@smartwaste.com','worker123')">
+                    🟡 Worker W06 — T. Nagar <span>worker123</span>
+                </button>
+                <button class="demo-btn" onclick="fillLogin('critical@smartwaste.com','critical123')" style="border-color:rgba(255,82,82,0.4);">
+                    🚨 Critical Response Worker <span>critical123</span>
+                </button>
+                <button class="demo-btn" onclick="fillLogin('citizen@smartwaste.com','citizen123')">
+                    🟢 Citizen <span>citizen123</span>
+                </button>
+            </div>
+
+            <div class="register-link">
+                New citizen? <a href="/citizen/register">Create account</a>
+            </div>
+        </div>
+    </div>
+
+<script>
+function fillLogin(email, password) {
+    document.querySelector('input[name="email"]').value    = email;
+    document.querySelector('input[name="password"]').value = password;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register — SmartWaste</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg:#0d0f14; --surface:#151820; --surface2:#1c2030; --border:#252a3a; --green:#00e676; --text:#e8eaf0; --muted:#6b7280; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:2rem; }
+        .box { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:2.5rem; width:100%; max-width:420px; }
+        h1 { font-family:'Syne',sans-serif; font-size:1.6rem; font-weight:800; margin-bottom:0.25rem; }
+        p { color:var(--muted); font-size:0.9rem; margin-bottom:2rem; }
+        label { font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.35rem; display:block; }
+        input, select { width:100%; background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:0.7rem 1rem; border-radius:8px; font-size:0.95rem; outline:none; margin-bottom:1rem; font-family:'DM Sans',sans-serif; }
+        input:focus, select:focus { border-color:var(--green); }
+        .btn { width:100%; background:var(--green); color:#000; border:none; padding:0.85rem; border-radius:10px; font-size:1rem; font-weight:700; cursor:pointer; font-family:'Syne',sans-serif; }
+        .error { background:rgba(255,82,82,0.1); border:1px solid rgba(255,82,82,0.3); color:#ff5252; padding:0.75rem; border-radius:8px; margin-bottom:1rem; font-size:0.85rem; }
+        .login-link { margin-top:1rem; text-align:center; font-size:0.85rem; color:var(--muted); }
+        .login-link a { color:var(--green); text-decoration:none; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>Create Account</h1>
+        <p>Join SmartWaste Chennai as a citizen</p>
+        {% if error %}<div class="error">{{ error }}</div>{% endif %}
+        <form method="POST">
+            <label>Full Name</label>
+            <input type="text" name="name" placeholder="Your name" required>
+            <label>Email</label>
+            <input type="email" name="email" placeholder="you@email.com" required>
+            <label>Password</label>
+            <input type="password" name="password" placeholder="Choose a password" required>
+            <label>Your Zone</label>
+            <select name="zone" required>
+                <option value="">-- Select your zone --</option>
+                {% for z in zones %}
+                <option value="{{ z }}">{{ z }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn">Create Account →</button>
+        </form>
+        <div class="login-link">Already have an account? <a href="/login">Sign in</a></div>
+    </div>
+</body>
+</html>

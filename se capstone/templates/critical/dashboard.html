@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}Critical Response — SmartWaste{% endblock %}
+{% block nav_links %}<a href="/critical" class="active">Critical Dashboard</a>{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+#critical-map{height:420px;border-radius:12px;background:var(--surface2);}
+.bin-card{padding:.75rem 1rem;background:var(--surface2);border-radius:8px;margin-bottom:.5rem;border-left:3px solid var(--yellow);display:flex;align-items:center;justify-content:space-between;}
+.stop-row{display:flex;align-items:center;justify-content:space-between;padding:.65rem .75rem;background:var(--surface2);border-radius:8px;margin-bottom:.4rem;border-left:3px solid var(--border);}
+.stop-row.collected{border-left-color:var(--green);opacity:.55;}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page">
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+            <h1>🚨 Critical Response</h1>
+            <p>{{ session.user_name }} — handles bins with 2+ open complaints</p>
+        </div>
+        <form method="POST" action="/critical/shift">
+            {% if worker and worker.on_shift %}
+            <input type="hidden" name="action" value="stop">
+            <button type="submit" class="btn btn-danger">⏹ End Shift</button>
+            {% else %}
+            <input type="hidden" name="action" value="start">
+            <button type="submit" class="btn btn-primary">▶ Start Shift</button>
+            {% endif %}
+        </form>
+    </div>
+
+    <div class="stat-grid" style="margin-bottom:1.5rem;">
+        <div class="stat-card"><div class="stat-label">Bins with Complaints</div><div class="stat-value red">{{ complaint_bins|length }}</div></div>
+        <div class="stat-card"><div class="stat-label">Shift Status</div><div class="stat-value {% if worker and worker.on_shift %}green{% else %}yellow{% endif %}">{{ 'ACTIVE' if worker and worker.on_shift else 'OFF' }}</div></div>
+        <div class="stat-card">
+            <div class="stat-label">Route Progress</div>
+            <div class="stat-value blue">
+                {% if active_route %}{{ active_route.stops|selectattr('status','equalto','collected')|list|length }}/{{ active_route.stops|length }}{% else %}—{% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if worker and worker.on_shift %}
+    <div style="background:rgba(255,82,82,.08);border:1px solid rgba(255,82,82,.2);border-radius:10px;padding:.75rem 1rem;margin-bottom:1.5rem;font-size:.9rem;color:#ff5252;">
+        🚨 Critical shift active — collect all complaint bins. New citizen complaints are auto-added to your route. Each collection resolves all complaints on that bin.
+    </div>
+    {% endif %}
+
+    <div class="grid-2" style="margin-bottom:1.5rem;">
+        <!-- Complaint bins list -->
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                <div class="card-title" style="margin-bottom:0;">📋 Bins with 2+ Complaints</div>
+                {% if complaint_bins and worker and worker.on_shift %}
+                <form method="POST" action="/critical/generate_route">
+                    <button type="submit" class="btn btn-primary btn-sm">⚡ Generate Route</button>
+                </form>
+                {% endif %}
+            </div>
+
+            {% if complaint_bins %}
+            {% for b in complaint_bins %}
+            <div class="bin-card">
+                <div>
+                    <div style="font-weight:700;">{{ b.bin_id }} — {{ b.zone }}</div>
+                    <div style="font-size:.8rem;color:var(--muted);margin-top:.2rem;">
+                        {{ b.area_type }} &nbsp;|&nbsp;
+                        Fill: <span style="color:{{'#ff5252' if b.fill_percent>=80 else '#ffca28'}}">{{ "%.0f"|format(b.fill_percent) }}%</span>
+                        &nbsp;|&nbsp; <span style="color:var(--red);font-weight:600;">{{ b.complaint_count }} complaint(s)</span>
+                    </div>
+                    <div style="font-size:.78rem;color:var(--muted);margin-top:.15rem;">Issue: {{ b.reasons }}{% if b.citizen_names %} &nbsp;·&nbsp; By: {{ b.citizen_names }}{% endif %}</div>
+                </div>
+                {% if active_route %}
+                <form method="POST" action="/critical/collect">
+                    <input type="hidden" name="bin_id" value="{{ b.bin_id }}">
+                    <button type="submit" class="btn btn-primary btn-sm">✓ Collect</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% else %}
+            <div style="text-align:center;padding:3rem 0;color:var(--green);">
+                <div style="font-size:2rem;margin-bottom:.5rem;">✅</div>
+                <div>No bins with 2+ complaints!</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Map -->
+        <div class="card">
+            <div class="card-title">🗺 Live Map — Complaint Route</div>
+            <div id="critical-map"></div>
+            <div id="route-info" style="margin-top:.75rem;font-size:.85rem;color:var(--muted);"></div>
+        </div>
+    </div>
+
+    <!-- Active route stops -->
+    {% if active_route and active_route.stops %}
+    <div class="card">
+        <div class="card-title">🛣 Current Route — Stop Progress</div>
+        <div style="padding:.5rem .75rem;background:var(--surface2);border-radius:8px;font-size:.85rem;color:var(--muted);margin-bottom:.75rem;">
+            {{ active_route.stops|selectattr('status','equalto','collected')|list|length }}/{{ active_route.stops|length }} stops collected &nbsp;|&nbsp;
+            Est: {{ active_route.estimated_duration_min or '—' }} min
+        </div>
+        {% for s in active_route.stops %}
+        <div class="stop-row {% if s.status=='collected' %}collected{% endif %}">
+            <div style="display:flex;align-items:center;gap:.75rem;">
+                <div style="width:26px;height:26px;background:{% if s.status=='collected' %}rgba(0,230,118,.15){% else %}rgba(255,82,82,.15){% endif %};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:{% if s.status=='collected' %}var(--green){% else %}var(--red){% endif %};">{{ loop.index }}</div>
+                <strong>{{ s.bin_id }}</strong>
+            </div>
+            {% if s.status == 'collected' %}
+            <span style="color:var(--green);font-size:.85rem;">✓ Collected · Complaints resolved</span>
+            {% else %}
+            <form method="POST" action="/critical/collect">
+                <input type="hidden" name="bin_id" value="{{ s.bin_id }}">
+                <button type="submit" class="btn btn-primary btn-sm">✓ Collect</button>
+            </form>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const ORS_KEY     = "{{ ors_key }}";
+const WORKER_ID   = "{{ worker_id }}";
+const ON_SHIFT    = {{ 'true' if worker and worker.on_shift else 'false' }};
+const routeBins   = {{ route_bins | tojson }};
+const ZONE_HQ     = {'Adyar':[13.0067,80.2206],'Tambaram':[12.9249,80.1000],'Velachery':[12.9816,80.2209],'Anna Nagar':[13.0850,80.2101],'T. Nagar':[13.0418,80.2341],'All Zones':[13.0627,80.2100]};
+const hq       = ZONE_HQ['All Zones'];
+const savedLat = {{ worker.current_lat if worker and worker.current_lat else 'null' }};
+const savedLng = {{ worker.current_lng if worker and worker.current_lng else 'null' }};
+const startLat = savedLat||hq[0], startLng=savedLng||hq[1];
+
+const cMap=L.map('critical-map').setView([13.0418,80.2341],12);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(cMap);
+setTimeout(()=>cMap.invalidateSize(),200);
+
+const wIcon=L.divIcon({html:`<div style="width:22px;height:22px;background:#ff5252;border-radius:50%;border:3px solid #fff;box-shadow:0 0 14px #ff5252;cursor:${ON_SHIFT?'grab':'default'};"></div>`,className:'',iconSize:[22,22],iconAnchor:[11,11]});
+const wMarker=L.marker([startLat,startLng],{icon:wIcon,draggable:ON_SHIFT}).bindPopup(`<b>Critical Response</b><br>Drag to update location`).addTo(cMap);
+L.marker(hq,{icon:L.divIcon({html:`<div style="width:14px;height:14px;background:#ffca28;border-radius:3px;border:2px solid #fff;"></div>`,className:'',iconSize:[14,14],iconAnchor:[7,7]})}).bindPopup('<b>Chennai HQ</b>').addTo(cMap);
+
+wMarker.on('dragend',e=>{const p=e.target.getLatLng();fetch('/worker/update_location',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lat:p.lat,lng:p.lng})});});
+if(ON_SHIFT&&!savedLat){fetch('/worker/update_location',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lat:hq[0],lng:hq[1]})});}
+
+// Plot complaint bins + route
+routeBins.forEach((b,i)=>{
+    if(!b.latitude||!b.longitude)return;
+    const color=b.fill_percent>=80?'#ff5252':'#ffca28';
+    L.marker([b.latitude,b.longitude],{icon:L.divIcon({html:`<div style="background:${color};color:#000;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.8rem;border:2px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.5);">${i+1}</div>`,className:'',iconSize:[28,28],iconAnchor:[14,14]})}).bindPopup(`<b>${b.bin_id}</b><br>Fill:${(b.fill_percent||0).toFixed(0)}%`).addTo(cMap);
+});
+
+async function drawRoute(){
+    const validBins=routeBins.filter(b=>b.latitude&&b.longitude);
+    if(validBins.length<2)return;
+    try{
+        const coords=validBins.map(b=>[b.longitude,b.latitude]);
+        const res=await fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson',{method:'POST',headers:{'Authorization':ORS_KEY,'Content-Type':'application/json'},body:JSON.stringify({coordinates:coords})});
+        const data=await res.json();
+        if(data.features&&data.features[0]){
+            const line=data.features[0].geometry.coordinates.map(c=>[c[1],c[0]]);
+            const poly=L.polyline(line,{color:'#ff5252',weight:5,opacity:.85}).addTo(cMap);
+            cMap.fitBounds(poly.getBounds(),{padding:[40,40]});
+            const segs=data.features[0].properties.segments;
+            const dist=(segs.reduce((a,s)=>a+s.distance,0)/1000).toFixed(1);
+            const mins=Math.round(segs.reduce((a,s)=>a+s.duration,0)/60);
+            document.getElementById('route-info').innerHTML=`🚨 Complaint Route — 📏 <strong>${dist} km</strong> &nbsp;|&nbsp; ⏱ <strong>${mins} min</strong> &nbsp;|&nbsp; 🗑 <strong>${validBins.length}</strong> bins`;
+        }else throw new Error();
+    }catch{
+        const ll=validBins.map(b=>[b.latitude,b.longitude]);
+        const poly=L.polyline(ll,{color:'#ff5252',weight:4,dashArray:'10,8'}).addTo(cMap);
+        cMap.fitBounds(poly.getBounds(),{padding:[40,40]});
+        document.getElementById('route-info').textContent=`🚨 ${validBins.length} complaint bins — showing direct path`;
+    }
+}
+
+if(routeBins.length>0) drawRoute();
+setInterval(()=>location.reload(),30000);
+</script>
+{% endblock %}

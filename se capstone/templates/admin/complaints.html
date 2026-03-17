@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Complaints — SmartWaste Admin{% endblock %}
+
+{% block nav_links %}
+<a href="/admin">Dashboard</a>
+<a href="/admin/bins">Bins</a>
+<a href="/admin/complaints" class="active">Complaints</a>
+<a href="/admin/routes">Routes</a>
+<a href="/admin/workers">Workers</a>
+<a href="/admin/festival">Festival</a>
+<a href="/admin/impact">Impact</a>
+<a href="/admin/predict">Predict</a>
+<a href="/admin/tracking">Tracking</a>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+            <h1>Complaint Management</h1>
+            <p>Handled automatically by the Critical Response Worker</p>
+        </div>
+        <div style="font-size:.85rem;color:var(--muted);text-align:right;">
+            <span style="color:var(--red);font-weight:700;">{{ pending }}</span> pending &nbsp;·&nbsp;
+            <span style="color:var(--green);font-weight:700;">{{ resolved }}</span> resolved &nbsp;·&nbsp;
+            {{ total }} total
+        </div>
+    </div>
+
+    <div style="background:rgba(68,138,255,.08);border:1px solid rgba(68,138,255,.2);border-radius:10px;padding:.75rem 1rem;margin-bottom:1.5rem;font-size:.88rem;color:#448aff;">
+        ℹ️ Complaints are automatically handled by the <strong>Critical Response Worker</strong>. Bins with open complaints appear on their dashboard. Collecting a bin auto-resolves all its complaints.
+    </div>
+
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Citizen</th>
+                    <th>Bin</th>
+                    <th>Zone</th>
+                    <th>Issue / Remark</th>
+                    <th>Fill %</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Filed On</th>
+                    <th>Resolved On</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for c in complaints %}
+            <tr>
+                <td style="color:var(--muted);">{{ c.id }}</td>
+                <td style="font-size:.85rem;">{{ c.citizen_name or '—' }}</td>
+                <td><strong>{{ c.bin_id }}</strong></td>
+                <td>{{ c.zone }}</td>
+                <td>
+                    <div style="font-weight:600;font-size:.85rem;">{{ c.reason }}</div>
+                    {% if c.description %}
+                    <div style="font-size:.78rem;color:var(--muted);margin-top:.15rem;">{{ c.description }}</div>
+                    {% endif %}
+                </td>
+                <td>
+                    <span style="color:{{'#ff5252' if c.reported_fill and c.reported_fill>=80 else ('#ffca28' if c.reported_fill and c.reported_fill>=50 else '#00e676')}}">
+                        {{ "%.0f"|format(c.reported_fill or 0) }}%
+                    </span>
+                </td>
+                <td>
+                    <span class="pill pill-{% if c.priority=='high' %}red{% elif c.priority=='medium' %}yellow{% else %}green{% endif %}">
+                        {{ c.priority or 'medium' }}
+                    </span>
+                </td>
+                <td>
+                    {% if c.status == 'resolved' %}
+                    <span class="pill pill-green">✓ Resolved</span>
+                    {% else %}
+                    <span class="pill pill-yellow">⏳ Pending</span>
+                    {% endif %}
+                </td>
+                <td style="font-size:.8rem;color:var(--muted);">
+                    {{ c.created_at.strftime('%d %b %Y') if c.created_at else '—' }}
+                </td>
+                <td style="font-size:.8rem;color:var(--muted);">
+                    {{ c.resolved_at.strftime('%d %b %Y') if c.resolved_at else '—' }}
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not complaints %}
+            <tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--muted);">No complaints filed yet</td></tr>
+            {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
